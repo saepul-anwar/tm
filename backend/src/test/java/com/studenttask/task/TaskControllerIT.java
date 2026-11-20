@@ -114,7 +114,8 @@ class TaskControllerIT extends MySqlTestBase {
         assertThat(data.get("completedAt").isNull()).isTrue();
         assertThat(data.get("version").asLong()).isZero();
         assertThat(data.has("deadlineCategory")).isTrue();
-        assertThat(data.get("deadlineCategory").isNull()).isTrue();
+        // open task: category present (value depends on the real clock, so only presence is asserted)
+        assertThat(data.get("deadlineCategory").isNull()).isFalse();
         assertThat(data.get("createdAt").asText()).endsWith("Z");
         assertThat(data.get("updatedAt").asText()).endsWith("Z");
         assertThat(data.has("userId")).isFalse();

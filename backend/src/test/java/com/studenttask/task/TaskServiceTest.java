@@ -12,14 +12,17 @@ import com.studenttask.common.error.AppException;
 import com.studenttask.common.error.ErrorCode;
 import com.studenttask.task.dto.TaskRequest;
 import com.studenttask.task.dto.TaskResponse;
+import com.studenttask.task.entity.DeadlineCategory;
 import com.studenttask.task.entity.Priority;
 import com.studenttask.task.entity.Task;
 import com.studenttask.task.entity.TaskStatus;
 import com.studenttask.task.mapper.TaskMapper;
 import com.studenttask.task.repository.TaskRepository;
 import com.studenttask.task.service.TaskService;
+import com.studenttask.task.service.UserZoneResolver;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,11 +36,13 @@ class TaskServiceTest {
     private static final long USER = 7L;
 
     private final TaskRepository repo = mock(TaskRepository.class);
+    private final UserZoneResolver zones = mock(UserZoneResolver.class);
     private TaskService service;
 
     @BeforeEach
     void setUp() {
-        service = new TaskService(repo, new TaskMapper(), Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new TaskService(repo, new TaskMapper(), Clock.fixed(NOW, ZoneOffset.UTC), zones);
+        when(zones.zoneOf(USER)).thenReturn(ZoneId.of("Asia/Jakarta"));
         when(repo.saveAndFlush(any(Task.class))).thenAnswer(inv -> repo.save(inv.getArgument(0)));
         when(repo.save(any(Task.class))).thenAnswer(inv -> {
             Task saved = inv.getArgument(0);
@@ -71,7 +76,8 @@ class TaskServiceTest {
         assertThat(response.deadline()).isEqualTo(Instant.parse("2020-01-01T00:00:00Z"));
         assertThat(response.createdAt()).isEqualTo(NOW_MILLIS);
         assertThat(response.completedAt()).isNull();
-        assertThat(response.deadlineCategory()).isNull();
+        // deadline 2020 is in the past for an open task
+        assertThat(response.deadlineCategory()).isEqualTo(DeadlineCategory.OVERDUE);
     }
 
     @Test

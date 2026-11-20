@@ -1,10 +1,11 @@
 package com.studenttask.task.dto;
 
+import com.studenttask.task.entity.DeadlineCategory;
 import com.studenttask.task.entity.Priority;
 import com.studenttask.task.entity.TaskStatus;
 import java.time.Instant;
 
-/** All instants are UTC. {@code deadlineCategory} stays null until the dashboard task fills it. */
+/** All instants are UTC. {@code deadlineCategory} is null for COMPLETED tasks. */
 public record TaskResponse(
         long id,
         String title,
@@ -17,5 +18,5 @@ public record TaskResponse(
         Instant createdAt,
         Instant updatedAt,
         long version,
-        String deadlineCategory) {
+        DeadlineCategory deadlineCategory) {
 }

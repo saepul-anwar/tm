@@ -12,6 +12,7 @@ import com.studenttask.task.repository.TaskRepository;
 import com.studenttask.task.repository.TaskSpecifications;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.springframework.data.domain.Page;
@@ -28,11 +29,13 @@ public class TaskService {
     private final TaskRepository tasks;
     private final TaskMapper mapper;
     private final Clock clock;
+    private final UserZoneResolver zones;
 
-    public TaskService(TaskRepository tasks, TaskMapper mapper, Clock clock) {
+    public TaskService(TaskRepository tasks, TaskMapper mapper, Clock clock, UserZoneResolver zones) {
         this.tasks = tasks;
         this.mapper = mapper;
         this.clock = clock;
+        this.zones = zones;
     }
 
     @Transactional
@@ -41,18 +44,21 @@ public class TaskService {
         Task task = new Task(userId, now);
         apply(task, request);
         task.changeStatus(request.status() == null ? TaskStatus.TODO : request.status(), now);
-        return mapper.toResponse(tasks.save(task));
+        return respond(userId, tasks.save(task));
     }
 
     @Transactional(readOnly = true)
     public TaskResponse get(long userId, long id) {
-        return mapper.toResponse(find(userId, id));
+        return respond(userId, find(userId, id));
     }
 
     /** Filtered, sorted page of the user's own tasks; ordering comes from the pageable. */
     @Transactional(readOnly = true)
     public Page<TaskResponse> list(long userId, TaskFilter filter, Pageable pageable) {
-        return tasks.findAll(TaskSpecifications.forUser(userId, filter), pageable).map(mapper::toResponse);
+        ZoneId zone = zones.zoneOf(userId);
+        Instant now = now();
+        return tasks.findAll(TaskSpecifications.forUser(userId, filter), pageable)
+                .map(task -> mapper.toResponse(task, zone, now));
     }
 
     @Transactional(readOnly = true)
@@ -73,7 +79,7 @@ public class TaskService {
             task.changeStatus(request.status(), now);
         }
         task.touch(now);
-        return mapper.toResponse(tasks.saveAndFlush(task));
+        return respond(userId, tasks.saveAndFlush(task));
     }
 
     @Transactional
@@ -82,12 +88,16 @@ public class TaskService {
         Instant now = now();
         task.changeStatus(status, now);
         task.touch(now);
-        return mapper.toResponse(tasks.saveAndFlush(task));
+        return respond(userId, tasks.saveAndFlush(task));
     }
 
     @Transactional
     public void delete(long userId, long id) {
         tasks.delete(find(userId, id));
+    }
+
+    private TaskResponse respond(long userId, Task task) {
+        return mapper.toResponse(task, zones.zoneOf(userId), now());
     }
 
     private Task find(long userId, long id) {
