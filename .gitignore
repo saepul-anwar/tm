@@ -1,0 +1,19 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# build / deps
+target/
+node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
