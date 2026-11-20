@@ -1,7 +1,7 @@
 # Spesifikasi API
 
 Sumber: [spec §8](specs/2026-11-20-studenttask-design.md). Semua path di bawah `/api`; JWT `Authorization: Bearer` kecuali ditandai publik.
-Saat ini hanya `/actuator/health` (di luar `/api`) yang ada. Skema field dan contoh (data sintetis) dilengkapi per fase bersamaan dengan implementasinya.
+Saat ini yang ada: `/actuator/health` (di luar `/api`) dan endpoint `/api/auth/*` (Task 5). Skema field dan contoh (data sintetis) dilengkapi per fase bersamaan dengan implementasinya.
 
 ## Format respons
 Sukses: `{ "success": true, "data": ..., "meta": {page,size,totalElements,totalPages} }`.
@@ -13,11 +13,11 @@ Task milik user lain -> 404. Tidak ada `userId` di request. `deadline` request: 
 | Method | Path | Fase | Status |
 |---|---|---|---|
 | GET | `/actuator/health` (publik) | 1 | ada |
-| POST | `/auth/register` (publik) | 2 | belum diimplementasi |
-| POST | `/auth/login` (publik) | 2 | belum diimplementasi |
-| POST | `/auth/refresh` (cookie) | 2 | belum diimplementasi |
-| POST | `/auth/logout` | 2 | belum diimplementasi |
-| GET | `/auth/me` | 2 | belum diimplementasi |
+| POST | `/auth/register` (publik) | 2 | ada |
+| POST | `/auth/login` (publik) | 2 | ada |
+| POST | `/auth/refresh` (cookie) | 2 | ada |
+| POST | `/auth/logout` (publik, cookie) | 2 | ada |
+| GET | `/auth/me` | 2 | ada |
 | GET | `/tasks` (filter, sort, page) | 3 | belum diimplementasi |
 | POST | `/tasks` | 3 | belum diimplementasi |
 | GET | `/tasks/{id}` | 3 | belum diimplementasi |
@@ -37,3 +37,12 @@ Task milik user lain -> 404. Tidak ada `userId` di request. `deadline` request: 
 | DELETE | `/telegram/disconnect` | 5 | belum diimplementasi |
 | POST | `/telegram/test` | 5 | belum diimplementasi |
 | GET | `/calendar/tasks?from&to` (maks 62 hari) | 7 | belum diimplementasi |
+
+## Auth (Task 5)
+- `POST /auth/register` body `{fullName,email,password,confirmPassword}` -> 201 `{id,fullName,email,timezone}`. Email di-lowercase, unik (409 `CONFLICT`). Password 8-72 **byte** UTF-8, min 1 huruf + 1 angka; `confirmPassword` harus sama (400 `VALIDATION_ERROR` dengan `details[].field`).
+- `POST /auth/login` body `{email,password}` -> 200 `{accessToken,expiresIn}` (JWT HS256, 900 dtk) + cookie `refresh_token` (httpOnly, Secure, SameSite=Strict, Path=/api/auth, 7 hari). Email salah / password salah -> 401 `UNAUTHENTICATED` identik.
+- `POST /auth/refresh` (cookie) -> 200 token baru + cookie baru; token lama sekali pakai. Pemakaian ulang token yang sudah dirotasi/dicabut -> 401 dan **semua** refresh token user dicabut.
+- `POST /auth/logout` (cookie; publik agar tetap bisa dipakai setelah access token kedaluwarsa) -> 204, cookie dihapus, token dicabut; idempoten.
+- `GET /auth/me` (Bearer) -> 200 `{id,fullName,email,timezone}`.
+- Rate limit: register/login/refresh 10/menit per alamat remote -> 429 `RATE_LIMITED` + header `Retry-After`.
+- Flag `Secure` cookie: properti `app.auth.refresh-cookie-secure` (env `AUTH_REFRESH_COOKIE_SECURE`, default `true`). Setel `false` **hanya** untuk pengembangan lokal lewat http.

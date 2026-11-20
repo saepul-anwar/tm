@@ -46,10 +46,29 @@ class SecurityConfigIT extends MySqlTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/api/auth/register", "/api/auth/login", "/api/auth/refresh", "/api/telegram/webhook"})
-    void public_post_paths_are_not_blocked_by_authentication(String path) throws Exception {
-        // No controller exists yet, so a permitted request reaches routing and yields 404 (never 401/403).
+    @ValueSource(strings = {"/api/auth/register", "/api/auth/login"})
+    void public_auth_post_paths_reach_their_controller_without_a_token(String path) throws Exception {
+        // Task 5 added real controllers: an empty body is now rejected by validation (400), proving the request
+        // was not stopped by authentication (401/403) and was routed to the controller.
         mvc.perform(post(path).contentType("application/json").content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void refresh_and_logout_are_public_and_reach_their_controller() throws Exception {
+        // No cookie: the controller answers 401 with its own message (not the generic "Autentikasi diperlukan."
+        // of the entry point), which proves it was reached; logout without cookie is an idempotent 204.
+        mvc.perform(post("/api/auth/refresh"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.message").value("Sesi tidak valid. Silakan masuk kembali."));
+        mvc.perform(post("/api/auth/logout")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void telegram_webhook_is_public() throws Exception {
+        // The webhook controller arrives in a later task, so a permitted request reaches routing and yields 404.
+        mvc.perform(post("/api/telegram/webhook").contentType("application/json").content("{}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
     }

@@ -18,7 +18,15 @@ public record AppProperties(
         @NotNull @Valid Jwt jwt,
         @NotNull @Valid Telegram telegram,
         @NotNull @Valid @DefaultValue Reminder reminder,
-        @NotNull @Valid Cors cors) {
+        @NotNull @Valid Cors cors,
+        @NotNull @Valid @DefaultValue Auth auth) {
+
+    /**
+     * {@code refreshCookieSecure} must stay true outside local plain-http development
+     * (property {@code app.auth.refresh-cookie-secure}, env {@code AUTH_REFRESH_COOKIE_SECURE}).
+     */
+    public record Auth(@DefaultValue("true") boolean refreshCookieSecure) {
+    }
 
     public record Jwt(@NotBlank String secret) {
     }
