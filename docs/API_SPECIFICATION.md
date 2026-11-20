@@ -1,7 +1,7 @@
 # Spesifikasi API
 
 Sumber: [spec §8](specs/2026-11-20-studenttask-design.md). Semua path di bawah `/api`; JWT `Authorization: Bearer` kecuali ditandai publik.
-Saat ini yang ada: `/actuator/health` (di luar `/api`) dan endpoint `/api/auth/*` (Task 5). Skema field dan contoh (data sintetis) dilengkapi per fase bersamaan dengan implementasinya.
+Saat ini yang ada: `/actuator/health` (di luar `/api`), endpoint `/api/auth/*` (Task 5), dan CRUD `/api/tasks[/{id}]` (Task 7; daftar/filter dan `/tasks/subjects` menyusul di Task 8). Skema field dan contoh (data sintetis) dilengkapi per fase bersamaan dengan implementasinya.
 
 ## Format respons
 Sukses: `{ "success": true, "data": ..., "meta": {page,size,totalElements,totalPages} }`.
@@ -19,11 +19,11 @@ Task milik user lain -> 404. Tidak ada `userId` di request. `deadline` request: 
 | POST | `/auth/logout` (publik, cookie) | 2 | ada |
 | GET | `/auth/me` | 2 | ada |
 | GET | `/tasks` (filter, sort, page) | 3 | belum diimplementasi |
-| POST | `/tasks` | 3 | belum diimplementasi |
-| GET | `/tasks/{id}` | 3 | belum diimplementasi |
-| PUT | `/tasks/{id}` | 3 | belum diimplementasi |
-| PATCH | `/tasks/{id}/status` | 3 | belum diimplementasi |
-| DELETE | `/tasks/{id}` | 3 | belum diimplementasi |
+| POST | `/tasks` | 3 | ada (Task 7) |
+| GET | `/tasks/{id}` | 3 | ada (Task 7) |
+| PUT | `/tasks/{id}` | 3 | ada (Task 7) |
+| PATCH | `/tasks/{id}/status` | 3 | ada (Task 7) |
+| DELETE | `/tasks/{id}` | 3 | ada (Task 7) |
 | GET | `/tasks/subjects` | 3 | belum diimplementasi |
 | GET | `/dashboard/summary` | 4 | belum diimplementasi |
 | GET | `/dashboard/upcoming` | 4 | belum diimplementasi |
@@ -47,3 +47,9 @@ Task milik user lain -> 404. Tidak ada `userId` di request. `deadline` request: 
 - Rate limit: register/login/refresh 10/menit per alamat remote (IPv6 dihitung per /64; path dinormalisasi: encoding, huruf besar, trailing slash tidak menghindari limit) -> 429 `RATE_LIMITED` + header `Retry-After`.
 - Cek `Origin` pada `POST /auth/refresh` dan `POST /auth/logout`: jika header `Origin` ada, harus termasuk `app.cors.allowedOrigins`, jika tidak -> 403 `FORBIDDEN` (token tidak diputar/dicabut). Tanpa `Origin` (proxy same-origin, klien non-browser) tetap diizinkan.
 - Flag `Secure` cookie: properti `app.auth.refresh-cookie-secure` (env `AUTH_REFRESH_COOKIE_SECURE`, default `true`). Setel `false` **hanya** untuk pengembangan lokal lewat http.
+
+## Task CRUD (Task 7)
+Request `POST`/`PUT /tasks`: `title` (wajib, di-trim, 1-200), `description?` (maks 5000), `subject?` (maks 100; kosong -> null), `deadline` (wajib, ISO-8601 dengan offset, mis. `2026-12-01T23:59:00+07:00`; tanggal lampau diperbolehkan), `priority` (wajib: `LOW|MEDIUM|HIGH|URGENT`), `status?` (`TODO|IN_PROGRESS|COMPLETED`; default `TODO` saat POST, pada PUT yang kosong mempertahankan status lama), `version?` (hanya PUT; bila ada dan tidak sama dengan versi saat ini -> 409 `CONFLICT`). Properti tak dikenal (mis. `userId`) diabaikan.
+`PATCH /tasks/{id}/status`: `{ "status": "COMPLETED" }`. Masuk `COMPLETED` mengisi `completedAt`; keluar dari `COMPLETED` mengosongkannya.
+Response `TaskResponse`: `id,title,description,subject,deadline(UTC),priority,status,completedAt,createdAt,updatedAt,version,deadlineCategory` (`deadlineCategory` selalu `null` sampai Task 10).
+Kode: 201 (POST), 200 (GET/PUT/PATCH), 204 (DELETE), 400 `VALIDATION_ERROR` (termasuk enum/format tanggal salah dan `{id}` non-numerik), 401, 404 `NOT_FOUND` (tidak ada atau milik user lain, pesan identik), 409 `CONFLICT`. Menghapus task ikut menghapus `notification_logs` (FK cascade).
