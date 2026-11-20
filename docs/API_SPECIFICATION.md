@@ -6,7 +6,7 @@ Saat ini hanya `/actuator/health` (di luar `/api`) yang ada. Skema field dan con
 ## Format respons
 Sukses: `{ "success": true, "data": ..., "meta": {page,size,totalElements,totalPages} }`.
 Gagal: `{ "success": false, "error": { "code", "message", "details": [{field,message}] } }`.
-Kode: `VALIDATION_ERROR` 400, `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404, `CONFLICT` 409, `RATE_LIMITED` 429, `TELEGRAM_UNAVAILABLE` 502.
+Kode: `VALIDATION_ERROR` 400, `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404, `CONFLICT` 409, `METHOD_NOT_ALLOWED` 405, `UNSUPPORTED_MEDIA_TYPE` 415, `NOT_ACCEPTABLE` 406, `RATE_LIMITED` 429, `TELEGRAM_UNAVAILABLE` 502.
 Task milik user lain -> 404. Tidak ada `userId` di request. `deadline` request: ISO-8601 dengan offset; response UTC (`Z`).
 
 ## Endpoint
