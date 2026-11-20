@@ -55,7 +55,7 @@ class TelegramPollingRunnerTest {
 
     private TelegramPollingRunner runner(String token) {
         AppProperties props = new AppProperties(null, new AppProperties.Telegram(token, "secret", "some_bot",
-                AppProperties.Telegram.Mode.POLLING, "https://api.telegram.org", "", true), null, null, null);
+                AppProperties.Telegram.Mode.POLLING, "https://api.telegram.org", "", true, false), null, null, null);
         return new TelegramPollingRunner(props, client, handler);
     }
 

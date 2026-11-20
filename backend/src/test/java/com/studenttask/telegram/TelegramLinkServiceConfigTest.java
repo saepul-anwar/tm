@@ -23,7 +23,7 @@ class TelegramLinkServiceConfigTest {
 
     private TelegramLinkService serviceWith(String botToken, String botUsername) {
         AppProperties props = new AppProperties(null, new AppProperties.Telegram(botToken, "secret", botUsername,
-                AppProperties.Telegram.Mode.POLLING, "https://api.telegram.org", "", true), null, null, null);
+                AppProperties.Telegram.Mode.POLLING, "https://api.telegram.org", "", true, false), null, null, null);
         return new TelegramLinkService(users, tokens, mock(TransactionTemplate.class), Clock.systemUTC(), props);
     }
 

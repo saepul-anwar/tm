@@ -22,6 +22,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("select u.id from User u where u.telegramChatId = :chatId")
     Optional<Long> findIdByTelegramChatId(@Param("chatId") long chatId);
 
+    @Query("select u.email from User u where u.telegramChatId = :chatId")
+    Optional<String> findEmailByTelegramChatId(@Param("chatId") long chatId);
+
     /** Null when not connected (or no such user). The chat id never leaves the backend through the entity. */
     @Query("select u.telegramChatId from User u where u.id = :id")
     Optional<Long> findTelegramChatIdById(@Param("id") long id);

@@ -74,7 +74,7 @@ class MigrationIT extends MySqlTestBase {
                 .withUserConfiguration(PropertiesOnly.class)
                 .withPropertyValues(
                         "app.telegram.bot-token=synthetic",
-                        "app.telegram.webhook-secret=synthetic",
+                        "app.telegram.webhook-secret=synthetic-webhook-secret-0123456789abcdef",
                         "app.telegram.bot-username=synthetic_bot",
                         "app.cors.allowed-origins=http://localhost:3000");
 

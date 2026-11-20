@@ -18,7 +18,7 @@ Stop: `docker compose down` (data tetap di volume `mysql_data`). Hapus data: `do
 `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_MODE`, `TELEGRAM_PUBLIC_BASE_URL`, `BACKEND_URL`.
 - `BACKEND_URL` dipakai frontend saat **build** dan runtime (di Compose: alamat internal service backend). Mengubahnya butuh `docker compose build frontend`.
 - `DB_URL` dirakit Compose dari `DB_NAME`.
-- `TELEGRAM_PUBLIC_BASE_URL`: origin HTTPS publik backend; hanya dipakai saat `TELEGRAM_MODE=webhook` (kosong pada mode polling). Secret webhook hanya boleh berisi `A-Za-z0-9_-`.
+- `TELEGRAM_PUBLIC_BASE_URL`: origin HTTPS publik backend; hanya dipakai saat `TELEGRAM_MODE=webhook` (kosong pada mode polling). `TELEGRAM_WEBHOOK_SECRET` wajib cocok `[A-Za-z0-9_-]{32,256}` (mis. `openssl rand -hex 32`); jika tidak, backend **gagal start** (pesan error tidak menampilkan nilainya). Nilai pendek/placeholder di `.env` lokal harus diganti. `TELEGRAM_API_BASE` (opsional) harus `https://`; backend menolak `http://` saat start.
 
 ## Jaringan dan keamanan lokal
 - `frontend` :3000 dan `backend` :8080 hanya terikat ke `127.0.0.1`; MySQL tidak dipublikasikan.

@@ -17,7 +17,7 @@ class WebhookRegistrarTest {
 
     private WebhookRegistrar registrar(Mode mode, String publicBaseUrl, boolean enabled) {
         AppProperties props = new AppProperties(null, new AppProperties.Telegram("synthetic-token", "synthetic-secret",
-                "some_bot", mode, "https://api.telegram.org", publicBaseUrl, enabled), null, null, null);
+                "some_bot", mode, "https://api.telegram.org", publicBaseUrl, enabled, false), null, null, null);
         return new WebhookRegistrar(props, client);
     }
 

@@ -275,6 +275,88 @@ class TelegramControllerIT extends MySqlTestBase {
         assertThat(chatOf(a.id())).isEqualTo(chat);
     }
 
+    // ---- F8: masked email and /stop ----
+
+    private String emailOf(long userId) {
+        return jdbc.queryForObject("select email from users where id = ?", String.class, userId);
+    }
+
+    @Test
+    void linked_reply_shows_a_masked_email_and_the_stop_hint_but_never_the_full_address() throws Exception {
+        Account a = newAccount();
+        long chat = newChatId();
+        String email = emailOf(a.id());
+
+        webhook(WEBHOOK_SECRET, update(chat, "private", "/start " + connect(a)));
+
+        String reply = lastReply(chat);
+        assertThat(reply).contains("t***@example.test").contains("Bukan kamu? Kirim /stop")
+                .doesNotContain(email).doesNotContain("tgc-");
+    }
+
+    @Test
+    void stop_unlinks_the_chat_and_confirms_and_a_second_stop_says_nothing_is_linked() throws Exception {
+        Account a = newAccount();
+        long chat = newChatId();
+        webhook(WEBHOOK_SECRET, update(chat, "private", "/start " + connect(a)));
+        String pending = connect(a);
+        reset(client);
+
+        MvcResult first = webhook(WEBHOOK_SECRET, update(chat, "private", "/stop"));
+
+        assertThat(status(first)).isEqualTo(200);
+        assertThat(chatOf(a.id())).isNull();
+        assertThat(jdbc.queryForObject("select telegram_connected_at is null from users where id = ?", Boolean.class, a.id()))
+                .isTrue();
+        assertThat(lastReply(chat)).containsIgnoringCase("diputus").doesNotContain(emailOf(a.id()));
+        // The unused link token was dropped as well, so it cannot re-link the chat.
+        reset(client);
+        webhook(WEBHOOK_SECRET, update(chat, "private", "/start " + pending));
+        assertThat(chatOf(a.id())).isNull();
+        assertThat(lastReply(chat)).containsIgnoringCase("tidak valid");
+        reset(client);
+
+        webhook(WEBHOOK_SECRET, update(chat, "private", "/stop"));
+
+        assertThat(lastReply(chat)).containsIgnoringCase("tidak ada akun");
+    }
+
+    @Test
+    void stop_in_a_group_is_ignored_and_does_not_unlink_anything() throws Exception {
+        Account a = newAccount();
+        long groupChat = -100555444333L;
+        webhook(WEBHOOK_SECRET, update(newChatId(), "private", "/start " + connect(a)));
+        Long linked = chatOf(a.id());
+        reset(client);
+
+        MvcResult r = webhook(WEBHOOK_SECRET, update(groupChat, "group", "/stop"));
+
+        assertThat(status(r)).isEqualTo(200);
+        assertThat(chatOf(a.id())).isEqualTo(linked);
+        verifyNoInteractions(client);
+    }
+
+    // ---- F1: per-chat limit through the full webhook path ----
+
+    @Test
+    void sixth_update_per_minute_from_one_chat_is_dropped_silently_and_another_chat_is_unaffected() throws Exception {
+        long chat = newChatId();
+        for (int i = 0; i < 5; i++) {
+            assertThat(status(webhook(WEBHOOK_SECRET, update(chat, "private", "/start")))).isEqualTo(200);
+        }
+        verify(client, org.mockito.Mockito.times(5)).sendMessage(eq(chat), anyString());
+        reset(client);
+
+        MvcResult sixth = webhook(WEBHOOK_SECRET, update(chat, "private", "/start"));
+
+        assertThat(status(sixth)).isEqualTo(200);
+        assertThat(sixth.getResponse().getContentAsString()).isEmpty();
+        verifyNoInteractions(client);
+        long another = newChatId();
+        webhook(WEBHOOK_SECRET, update(another, "private", "/start"));
+        verify(client).sendMessage(eq(another), anyString());
+    }
+
     // ---- connect / disconnect / test ----
 
     @Test

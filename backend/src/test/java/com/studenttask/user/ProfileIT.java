@@ -461,4 +461,38 @@ class ProfileIT extends MySqlTestBase {
         assertThat(status(putProfile(newAccount(), map("fullName", "Citra")))).isEqualTo(200);
         assertThat(status(send(a.accessToken(), get("/api/profile"), null))).isEqualTo(200);
     }
+
+    @Test
+    void sixth_wrong_current_password_returns_429_even_for_the_right_password_and_is_per_user() throws Exception {
+        Account a = newAccount();
+        String target = newEmail();
+        for (int i = 0; i < 5; i++) {
+            MvcResult wrong = putProfile(a, map("email", target, "currentPassword", "Wr0ng-Password-" + i));
+            assertThat(status(wrong)).isEqualTo(400);
+            assertThat(hasFieldError(wrong, "currentPassword")).isTrue();
+        }
+
+        MvcResult sixth = putProfile(a, map("email", target, "currentPassword", PASSWORD));
+
+        assertThat(status(sixth)).isEqualTo(429);
+        assertThat(errorCode(sixth)).isEqualTo("RATE_LIMITED");
+        assertThat(dbEmail(a.id())).isEqualTo(a.email());
+        // Updates that do not need the password still work; another user is unaffected.
+        assertThat(status(putProfile(a, map("fullName", "Budi Baru")))).isEqualTo(200);
+        Account b = newAccount();
+        assertThat(status(putProfile(b, map("email", newEmail(), "currentPassword", PASSWORD)))).isEqualTo(200);
+    }
+
+    @Test
+    void email_change_revokes_all_refresh_tokens() throws Exception {
+        Account a = newAccount();
+
+        assertThat(status(putProfile(a, map("email", newEmail(), "currentPassword", PASSWORD)))).isEqualTo(200);
+
+        assertThat(jdbc.queryForObject(
+                "select count(*) from refresh_tokens where user_id = ? and revoked_at is null", Integer.class, a.id()))
+                .isZero();
+        MvcResult refresh = mvc.perform(freshIp(post("/api/auth/refresh")).cookie(a.refreshCookie())).andReturn();
+        assertThat(status(refresh)).isEqualTo(401);
+    }
 }

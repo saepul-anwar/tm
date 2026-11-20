@@ -246,4 +246,43 @@ class TelegramLinkServiceIT extends MySqlTestBase {
         assertThat(connectedAtSet(user)).isFalse();
         assertThat(service.handleStart(newChatId(), PRIVATE, pending)).isEqualTo(LinkResult.INVALID);
     }
+
+    @Test
+    void disconnect_by_chat_unlinks_the_linked_account_and_drops_pending_tokens() {
+        long user = newUser();
+        long chat = newChatId();
+        assertThat(service.handleStart(chat, PRIVATE, tokenOf(service.createLink(user)))).isEqualTo(LinkResult.LINKED);
+        String pending = tokenOf(service.createLink(user));
+
+        assertThat(service.disconnectByChat(chat)).isTrue();
+        assertThat(service.disconnectByChat(chat)).isFalse();
+
+        assertThat(chatOf(user)).isNull();
+        assertThat(connectedAtSet(user)).isFalse();
+        assertThat(service.handleStart(newChatId(), PRIVATE, pending)).isEqualTo(LinkResult.INVALID);
+    }
+
+    @Test
+    void disconnect_by_chat_leaves_other_accounts_alone_and_is_false_for_an_unknown_chat() {
+        long user = newUser();
+        long other = newUser();
+        long otherChat = newChatId();
+        assertThat(service.handleStart(otherChat, PRIVATE, tokenOf(service.createLink(other)))).isEqualTo(LinkResult.LINKED);
+
+        assertThat(service.disconnectByChat(newChatId())).isFalse();
+
+        assertThat(chatOf(other)).isEqualTo(otherChat);
+        assertThat(chatOf(user)).isNull();
+    }
+
+    @Test
+    void find_linked_email_returns_the_email_only_for_the_linked_chat() {
+        long user = newUser();
+        long chat = newChatId();
+        assertThat(service.findLinkedEmail(chat)).isEmpty();
+        service.handleStart(chat, PRIVATE, tokenOf(service.createLink(user)));
+
+        assertThat(service.findLinkedEmail(chat)).hasValueSatisfying(email -> assertThat(email).endsWith("@example.test"));
+        assertThat(service.findLinkedEmail(newChatId())).isEmpty();
+    }
 }

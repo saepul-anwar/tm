@@ -12,18 +12,18 @@ import com.studenttask.security.UserRateLimiter;
 import com.studenttask.telegram.controller.TelegramController;
 import com.studenttask.telegram.service.TelegramLinkService;
 import com.studenttask.telegram.service.TelegramNotificationService;
-import com.studenttask.telegram.service.TelegramUpdateHandler;
+import com.studenttask.telegram.service.TelegramUpdateDispatcher;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 class TelegramWebhookSecretTest {
 
-    private final TelegramUpdateHandler handler = mock(TelegramUpdateHandler.class);
+    private final TelegramUpdateDispatcher handler = mock(TelegramUpdateDispatcher.class);
 
     private MockMvc mvcWithConfiguredSecret(String configured) {
         AppProperties props = new AppProperties(null, new AppProperties.Telegram("synthetic-token", configured, "some_bot",
-                AppProperties.Telegram.Mode.WEBHOOK, "https://api.telegram.org", "", true), null, null, null);
+                AppProperties.Telegram.Mode.WEBHOOK, "https://api.telegram.org", "", true, false), null, null, null);
         TelegramController controller = new TelegramController(props, mock(TelegramLinkService.class), handler,
                 mock(TelegramNotificationService.class), mock(UserRateLimiter.class), new ObjectMapper());
         return MockMvcBuilders.standaloneSetup(controller).setControllerAdvice(new GlobalExceptionHandler()).build();

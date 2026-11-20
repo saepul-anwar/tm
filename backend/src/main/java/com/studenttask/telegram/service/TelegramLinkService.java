@@ -90,6 +90,26 @@ public class TelegramLinkService {
         });
     }
 
+    /** The email of the account linked to this chat (callers must mask it before showing it anywhere). */
+    public Optional<String> findLinkedEmail(long chatId) {
+        return users.findEmailByTelegramChatId(chatId);
+    }
+
+    /**
+     * Same effect as {@link #disconnect} for the account linked to this chat (used by the bot's /stop command).
+     * Returns false when no account is linked to the chat.
+     */
+    public boolean disconnectByChat(long chatId) {
+        return Boolean.TRUE.equals(tx.execute(status -> {
+            Optional<Long> userId = users.findIdByTelegramChatId(chatId);
+            userId.ifPresent(id -> {
+                users.unlinkTelegram(id, now());
+                tokens.deleteUnusedByUserId(id);
+            });
+            return userId.isPresent();
+        }));
+    }
+
     private LinkResult link(long chatId, String hash, TransactionStatus status) {
         Instant now = now();
         TelegramLinkToken token = tokens.findByTokenHash(hash).orElse(null);

@@ -6,6 +6,7 @@ import com.studenttask.auth.validation.StrongPasswordValidator;
 import com.studenttask.common.api.FieldError;
 import com.studenttask.common.error.AppException;
 import com.studenttask.common.error.ErrorCode;
+import com.studenttask.security.UserRateLimiter;
 import com.studenttask.user.dto.ProfileResponse;
 import com.studenttask.user.dto.UpdateProfileRequest;
 import com.studenttask.user.entity.User;
@@ -13,6 +14,7 @@ import com.studenttask.user.mapper.ProfileMapper;
 import com.studenttask.user.repository.UserRepository;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +29,10 @@ import org.springframework.transaction.support.TransactionTemplate;
  * transaction; only the final write (and the refresh-token revocation that must accompany a password change)
  * runs in one short transaction via {@link TransactionTemplate}.
  *
+ * <p>Failed {@code currentPassword} checks are budgeted per user (5 per fixed 15-minute window, see
+ * {@link UserRateLimiter#reserve}); an exhausted budget is 429 RATE_LIMITED for every update that needs the
+ * password. A missing password is not a guess and costs nothing; name/timezone-only updates never touch the budget.
+ *
  * <p>A wrong {@code currentPassword} is a 400 field error, never 401: the frontend treats 401 as session expiry.
  * Access tokens already issued stay valid until they expire (15 minutes); only refresh tokens are revoked.
  */
@@ -37,6 +43,9 @@ public class ProfileService {
     private static final int BCRYPT_MAX_BYTES = StrongPasswordValidator.MAX_BYTES;
     private static final String DUMMY_PASSWORD = "dummy-password-for-timing-equalisation";
     private static final String CURRENT_PASSWORD = "currentPassword";
+    static final String FAILED_ATTEMPTS_ACTION = "profile-current-password";
+    static final int MAX_FAILED_ATTEMPTS = 5;
+    static final Duration FAILED_ATTEMPTS_WINDOW = Duration.ofMinutes(15);
 
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
@@ -44,9 +53,11 @@ public class ProfileService {
     private final ProfileMapper mapper;
     private final TransactionTemplate tx;
     private final Clock clock;
+    private final UserRateLimiter rateLimiter;
 
     public ProfileService(UserRepository users, PasswordEncoder passwordEncoder, AuthService authService,
-            ProfileMapper mapper, TransactionTemplate tx, Clock clock) {
+            ProfileMapper mapper, TransactionTemplate tx, Clock clock, UserRateLimiter rateLimiter) {
+        this.rateLimiter = rateLimiter;
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.authService = authService;
@@ -84,7 +95,7 @@ public class ProfileService {
         String verifiedHash = current.getPasswordHash();
         return tx.execute(status -> {
             User user = load(userId);
-            if (passwordChanges && !user.getPasswordHash().equals(verifiedHash)) {
+            if ((emailChanges || passwordChanges) && !user.getPasswordHash().equals(verifiedHash)) {
                 throw new AppException(ErrorCode.CONFLICT, "Data telah diubah di tempat lain. Muat ulang lalu coba lagi.");
             }
             if (emailChanges && users.existsByEmailAndIdNot(email, userId)) {
@@ -99,8 +110,10 @@ public class ProfileService {
             } catch (DataIntegrityViolationException e) {
                 throw emailTaken(); // concurrent use of the same email
             }
-            if (passwordChanges) {
-                authService.revokeAll(userId); // joins this transaction: hash change and revocation are atomic
+            if (passwordChanges || emailChanges) {
+                // Joins this transaction: the credential change and the revocation are atomic. An email change
+                // revokes too, so a stolen refresh token cannot outlive a change of the login identity.
+                authService.revokeAll(userId);
             }
             return mapper.toProfile(user);
         });
@@ -115,9 +128,14 @@ public class ProfileService {
             errors.add(new FieldError(CURRENT_PASSWORD, "Kata sandi saat ini wajib diisi."));
             return false;
         }
+        // Take a token BEFORE the slow check so parallel guesses cannot overshoot; 429 once the budget is spent,
+        // even if this guess would be right. A correct password gives the token back.
+        rateLimiter.reserve(FAILED_ATTEMPTS_ACTION, user.getId(), MAX_FAILED_ATTEMPTS, FAILED_ATTEMPTS_WINDOW);
         boolean fits = supplied.getBytes(StandardCharsets.UTF_8).length <= BCRYPT_MAX_BYTES;
         boolean ok = passwordEncoder.matches(fits ? supplied : DUMMY_PASSWORD, user.getPasswordHash()) && fits;
-        if (!ok) {
+        if (ok) {
+            rateLimiter.refund(FAILED_ATTEMPTS_ACTION, user.getId());
+        } else {
             errors.add(new FieldError(CURRENT_PASSWORD, "Kata sandi saat ini salah."));
         }
         return ok;

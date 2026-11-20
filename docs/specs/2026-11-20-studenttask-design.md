@@ -284,9 +284,9 @@ Aturan umum:
 1. User menekan **Connect Telegram** → `POST /telegram/connect`. Backend membatalkan token aktif sebelumnya, membuat token acak 32 byte (base64url, 43 karakter, muat di batas 64 karakter parameter `start`), menyimpan **hash**-nya, masa berlaku 10 menit, sekali pakai.
 2. Backend mengembalikan `https://t.me/<BOT_USERNAME>?start=<token>`. Frontend menampilkan tombol/QR dan hitung mundur, lalu memeriksa `GET /profile` tiap 3 detik sampai `telegram.connected=true` atau token kedaluwarsa.
 3. User membuka bot dan menekan Start → Telegram mengirim update `/start <token>`.
-4. Update masuk lewat **webhook** (produksi): header `X-Telegram-Bot-Api-Secret-Token` dibandingkan dengan `TELEGRAM_WEBHOOK_SECRET` (constant-time); salah → 401. Atau lewat **long polling** `getUpdates` (development, `telegram.mode=polling`; hanya satu instance). Handler update-nya sama.
+4. Update masuk lewat **webhook** (produksi): header `X-Telegram-Bot-Api-Secret-Token` dibandingkan dengan `TELEGRAM_WEBHOOK_SECRET` (constant-time); salah → 401. Atau lewat **long polling** `getUpdates` (development, `telegram.mode=polling`; hanya satu instance). Handler update-nya sama. Webhook menjawab 200 segera dan memproses update di pool terbatas (4 thread, antrean 100; penuh = dibuang); batas 5 perintah/menit per chat id dicek sebelum akses database atau balasan.
 5. Handler hanya memproses chat `private` dan pesan teks `/start <token>`. Dalam satu transaksi: cari hash token yang belum dipakai dan belum kedaluwarsa → tandai `used_at` → set `users.telegram_chat_id` dan `telegram_connected_at`. Bila `chat_id` sudah terhubung ke akun lain (unique key) → tolak dan balas pesan penjelasan.
-6. Bot membalas konfirmasi ("Akun terhubung") atau pesan gagal ("Token tidak valid/kedaluwarsa, buat ulang dari aplikasi"). `/start` tanpa token membalas petunjuk.
+6. Bot membalas konfirmasi ("Akun a***@domain berhasil terhubung ... Bukan kamu? Kirim /stop"; email tersamar, tidak pernah lengkap) atau pesan gagal ("Token tidak valid/kedaluwarsa, buat ulang dari aplikasi"). `/start` tanpa token membalas petunjuk. `/stop` di chat private memutus akun yang terhubung ke chat itu.
 7. Disconnect mengosongkan `chat_id` dan `connected_at`. Test notification mengirim pesan contoh ke chat user (rate limit 3/menit).
 
 Aturan: bot token hanya di environment backend; user tidak pernah memasukkan token. Setelah webhook terpasang (`setWebhook` dengan `secret_token`), tidak boleh ada polling bersamaan; mode dipilih lewat konfigurasi.
@@ -351,6 +351,7 @@ Alur git (mengikuti aturan platform): branch `feature/<slug>` per fase, Conventi
 | 11 | Judul tugas menyuntikkan markup ke pesan | Kirim plain text tanpa `parse_mode` |
 | 12 | Tanpa lupa-password, akun terkunci bila password lupa | Non-goal MVP, ditulis di README; fitur setelah ada email |
 | 13 | Lingkup membengkak (10 halaman, 3 tampilan kalender) | Fase dengan kriteria selesai; kalender memakai library bila menghemat usaha |
+| 14 | Tebak `currentPassword` lewat sesi yang dicuri; flood webhook | 5 gagal/15 menit per user -> 429; ganti email mencabut refresh token; webhook asinkron terbatas + batas per chat; secret webhook `[A-Za-z0-9_-]{32,256}`; `api-base` wajib https |
 
 ## 14. Keputusan saya (bukan dari spec, silakan koreksi)
 

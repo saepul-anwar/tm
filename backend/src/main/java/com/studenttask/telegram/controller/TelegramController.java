@@ -12,7 +12,7 @@ import com.studenttask.telegram.dto.LinkResponse;
 import com.studenttask.telegram.dto.TelegramUpdate;
 import com.studenttask.telegram.service.TelegramLinkService;
 import com.studenttask.telegram.service.TelegramNotificationService;
-import com.studenttask.telegram.service.TelegramUpdateHandler;
+import com.studenttask.telegram.service.TelegramUpdateDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -39,16 +39,16 @@ public class TelegramController {
 
     private final AppProperties props;
     private final TelegramLinkService links;
-    private final TelegramUpdateHandler handler;
+    private final TelegramUpdateDispatcher dispatcher;
     private final TelegramNotificationService notifications;
     private final UserRateLimiter rateLimiter;
     private final ObjectMapper mapper;
 
-    public TelegramController(AppProperties props, TelegramLinkService links, TelegramUpdateHandler handler,
+    public TelegramController(AppProperties props, TelegramLinkService links, TelegramUpdateDispatcher dispatcher,
             TelegramNotificationService notifications, UserRateLimiter rateLimiter, ObjectMapper mapper) {
         this.props = props;
         this.links = links;
-        this.handler = handler;
+        this.dispatcher = dispatcher;
         this.notifications = notifications;
         this.rateLimiter = rateLimiter;
         this.mapper = mapper;
@@ -65,7 +65,9 @@ public class TelegramController {
      * Public endpoint (trust boundary). The secret header is checked first and fails closed: a missing, wrong or
      * unconfigured secret is 401 and nothing is parsed. Once authenticated, every outcome (including ignored or
      * unparsable updates) is an empty 200 so Telegram does not keep redelivering the same update. The body is read
-     * directly (bounded) so content negotiation cannot answer before the secret check.
+     * directly (bounded) so content negotiation cannot answer before the secret check. Processing happens later on
+     * a bounded worker pool ({@link TelegramUpdateDispatcher}); when it is saturated the update is dropped and the
+     * answer is still 200.
      */
     @PostMapping("/webhook")
     public ResponseEntity<Void> webhook(
@@ -80,11 +82,7 @@ public class TelegramController {
         }
         TelegramUpdate update = parse(body);
         if (update != null) {
-            try {
-                handler.handle(update);
-            } catch (RuntimeException e) {
-                log.error("Telegram update handling failed ({})", e.getClass().getSimpleName());
-            }
+            dispatcher.submit(update);
         }
         return ResponseEntity.ok().build();
     }
