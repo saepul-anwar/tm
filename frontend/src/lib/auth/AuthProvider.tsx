@@ -31,7 +31,9 @@ type AuthContextValue = {
   user: AuthUser | null
   login: (email: string, password: string) => Promise<void>
   register: (input: RegisterInput) => Promise<void>
-  logout: () => Promise<void>
+  logout: (redirectTo?: string) => Promise<void>
+  /** Re-reads /api/auth/me so name/email/timezone shown elsewhere stay current. Keeps the old user on failure. */
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -106,19 +108,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [login],
   )
 
-  const logout = useCallback(async () => {
+  const refreshUser = useCallback(async () => {
+    try {
+      await loadUser()
+    } catch {
+      // A failed refresh must not log the user out; an expired session is handled by onSessionExpired.
+    }
+  }, [loadUser])
+
+  const logout = useCallback(async (redirectTo = "/login") => {
     try {
       await apiFetch<void>("/api/auth/logout", { method: "POST" })
     } catch {
       // Clear the local session even if the server could not be reached.
     }
     becomeAnonymous()
-    router.replace("/login")
+    router.replace(redirectTo)
   }, [becomeAnonymous, router])
 
   const value = useMemo(
-    () => ({ status, user, login, register, logout }),
-    [status, user, login, register, logout],
+    () => ({ status, user, login, register, logout, refreshUser }),
+    [status, user, login, register, logout, refreshUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

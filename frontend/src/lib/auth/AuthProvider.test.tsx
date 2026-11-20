@@ -30,6 +30,8 @@ function Probe() {
       <span data-testid="name">{auth.user?.fullName ?? "-"}</span>
       <button onClick={() => void auth.login("budi@example.com", "rahasia123")}>login</button>
       <button onClick={() => void auth.logout()}>logout</button>
+      <button onClick={() => void auth.logout("/login?notice=x")}>logout-notice</button>
+      <button onClick={() => void auth.refreshUser()}>refresh-user</button>
     </div>
   )
 }
@@ -169,5 +171,59 @@ describe("AuthProvider", () => {
 
     expect(getAccessToken()).toBeNull()
     expect(nav.replace).toHaveBeenCalledWith("/login")
+  })
+
+  it("refreshUser_refetches_me_and_updates_the_user", async () => {
+    const actor = userEvent.setup()
+    document.cookie = `${SESSION_HINT_COOKIE}=1; Path=/`
+    let me = user
+    fetchMock.mockImplementation(async (url: string) =>
+      url === "/api/auth/refresh" ? ok({ accessToken: "tok", expiresIn: 900 }) : ok(me),
+    )
+    renderProvider()
+    await waitFor(() => expect(screen.getByTestId("name")).toHaveTextContent("Budi Santoso"))
+
+    me = { ...user, fullName: "Budi Baru" }
+    await actor.click(screen.getByText("refresh-user"))
+
+    await waitFor(() => expect(screen.getByTestId("name")).toHaveTextContent("Budi Baru"))
+  })
+
+  it("refreshUser_keeps_the_current_user_and_session_when_the_request_fails", async () => {
+    const actor = userEvent.setup()
+    document.cookie = `${SESSION_HINT_COOKIE}=1; Path=/`
+    let failing = false
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "/api/auth/refresh") return ok({ accessToken: "tok", expiresIn: 900 })
+      if (failing) return json(500, { success: false, error: { code: "INTERNAL_ERROR", message: "x", details: [] } })
+      return ok(user)
+    })
+    renderProvider()
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"))
+
+    failing = true
+    await actor.click(screen.getByText("refresh-user"))
+
+    await waitFor(() => expect(fetchMock.mock.calls.filter((c) => c[0] === "/api/auth/me")).toHaveLength(2))
+    expect(screen.getByTestId("status")).toHaveTextContent("authenticated")
+    expect(screen.getByTestId("name")).toHaveTextContent("Budi Santoso")
+  })
+
+  it("logout_can_redirect_to_a_custom_login_url", async () => {
+    const actor = userEvent.setup()
+    document.cookie = `${SESSION_HINT_COOKIE}=1; Path=/`
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "/api/auth/refresh") return ok({ accessToken: "tok", expiresIn: 900 })
+      if (url === "/api/auth/logout") return new Response(null, { status: 204 })
+      return ok(user)
+    })
+    renderProvider()
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"))
+
+    await act(async () => {
+      await actor.click(screen.getByText("logout-notice"))
+    })
+
+    expect(nav.replace).toHaveBeenCalledWith("/login?notice=x")
   })
 })
