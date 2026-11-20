@@ -12,6 +12,11 @@ public class StrongPasswordValidator implements ConstraintValidator<StrongPasswo
 
     @Override
     public boolean isValid(String value, ConstraintValidatorContext context) {
+        return isStrong(value);
+    }
+
+    /** The single definition of the password policy, also used where bean validation cannot (optional fields). */
+    public static boolean isStrong(String value) {
         if (value == null) {
             return false;
         }

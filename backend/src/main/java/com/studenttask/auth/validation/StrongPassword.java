@@ -15,7 +15,9 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface StrongPassword {
 
-    String message() default "Kata sandi harus 8-72 byte dan memuat minimal 1 huruf dan 1 angka.";
+    String DEFAULT_MESSAGE = "Kata sandi harus 8-72 byte dan memuat minimal 1 huruf dan 1 angka.";
+
+    String message() default DEFAULT_MESSAGE;
 
     Class<?>[] groups() default {};
 

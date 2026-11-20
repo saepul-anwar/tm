@@ -53,6 +53,15 @@ public class ReminderSettings {
         return settings;
     }
 
+    public void update(boolean reminder24Hours, boolean reminder6Hours, boolean reminder1Hour,
+            boolean reminderAtDeadline, Instant now) {
+        this.reminder24Hours = reminder24Hours;
+        this.reminder6Hours = reminder6Hours;
+        this.reminder1Hour = reminder1Hour;
+        this.reminderAtDeadline = reminderAtDeadline;
+        this.updatedAt = now;
+    }
+
     public Long getId() {
         return id;
     }

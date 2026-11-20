@@ -12,6 +12,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
+    boolean existsByEmailAndIdNot(String email, long id);
+
     @Query("select u.timezone from User u where u.id = :id")
     Optional<String> findTimezoneById(@Param("id") long id);
 }

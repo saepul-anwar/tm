@@ -28,10 +28,10 @@ Task milik user lain -> 404. Tidak ada `userId` di request. `deadline` request: 
 | GET | `/dashboard/summary` | 4 | ada (Task 10) |
 | GET | `/dashboard/upcoming` | 4 | ada (Task 10) |
 | GET | `/dashboard/overdue` | 4 | ada (Task 10) |
-| GET | `/profile` | 5 | belum diimplementasi |
-| PUT | `/profile` | 5 | belum diimplementasi |
-| GET | `/reminders/settings` | 5 | belum diimplementasi |
-| PUT | `/reminders/settings` | 5 | belum diimplementasi |
+| GET | `/profile` | 5 | ada (Task 12) |
+| PUT | `/profile` | 5 | ada (Task 12) |
+| GET | `/reminders/settings` | 5 | ada (Task 12) |
+| PUT | `/reminders/settings` | 5 | ada (Task 12) |
 | POST | `/telegram/connect` | 5 | belum diimplementasi |
 | POST | `/telegram/webhook` (publik, header rahasia) | 5 | belum diimplementasi |
 | DELETE | `/telegram/disconnect` | 5 | belum diimplementasi |
@@ -47,6 +47,28 @@ Task milik user lain -> 404. Tidak ada `userId` di request. `deadline` request: 
 - Rate limit: register/login/refresh 10/menit per alamat remote (IPv6 dihitung per /64; path dinormalisasi: encoding, huruf besar, trailing slash tidak menghindari limit) -> 429 `RATE_LIMITED` + header `Retry-After`.
 - Cek `Origin` pada `POST /auth/refresh` dan `POST /auth/logout`: jika header `Origin` ada, harus termasuk `app.cors.allowedOrigins`, jika tidak -> 403 `FORBIDDEN` (token tidak diputar/dicabut). Tanpa `Origin` (proxy same-origin, klien non-browser) tetap diizinkan.
 - Flag `Secure` cookie: properti `app.auth.refresh-cookie-secure` (env `AUTH_REFRESH_COOKIE_SECURE`, default `true`). Setel `false` **hanya** untuk pengembangan lokal lewat http.
+
+## Profil dan pengaturan reminder (Task 12)
+Semua endpoint butuh Bearer token; identitas hanya dari token. Properti tak dikenal di body (mis. `userId`, `id`, `telegramChatId`, `passwordHash`) diabaikan dan tidak pernah diterapkan. Hash password dan `telegram_chat_id` tidak pernah dikembalikan.
+
+`GET /profile` -> 200:
+```json
+{ "success": true, "data": { "fullName": "Budi Santoso", "email": "budi@example.test", "timezone": "Asia/Jakarta",
+    "telegram": { "connected": false, "connectedAt": null } } }
+```
+`connectedAt` berupa waktu UTC ISO-8601 bila `connected = true`.
+
+`PUT /profile` body (semua opsional; `null`/tidak ada = tidak diubah): `{fullName?, email?, timezone?, currentPassword?, newPassword?}` -> 200 `ProfileResponse` terbaru.
+- `fullName`: di-trim, 1-100 karakter.
+- `email`: di-trim dan di-lowercase, format valid, maks 254. Dipakai user **lain** (tanpa membedakan huruf besar/kecil) -> 409 `CONFLICT`. Email yang sama dengan email sendiri = tidak ada perubahan (tidak butuh password). **Mengubah email wajib `currentPassword`.**
+- `timezone`: ID wilayah IANA persis seperti di `ZoneId.getAvailableZoneIds()` (mis. `Asia/Jakarta`, `America/New_York`). Offset (`+07:00`), `UTC+7`, string kosong, dan huruf kecil (`asia/jakarta`) -> 400 `VALIDATION_ERROR` field `timezone`. Zona baru langsung dipakai `deadlineCategory` dan pesan berikutnya.
+- `newPassword`: aturan sama dengan register (8-72 **byte** UTF-8, min 1 huruf + 1 angka; terlalu lemah/panjang -> 400 field `newPassword`). **Wajib `currentPassword`.** Disimpan sebagai BCrypt.
+- `currentPassword` kosong, salah, atau lebih dari 72 byte -> **400** `VALIDATION_ERROR` field `currentPassword` (pesan generik), bukan 401 (frontend menganggap 401 sebagai sesi berakhir). Tidak ada perubahan apa pun yang disimpan (atomik).
+- Setelah `newPassword` berhasil: **semua refresh token user dicabut** (sesi lain/refresh berikutnya -> 401, harus login ulang dengan password baru). **Access token yang sudah terbit tetap berlaku sampai kedaluwarsa (maks 15 menit)**, termasuk di perangkat lain; klien sebaiknya memakai token saat ini sampai habis atau login ulang. Klaim email di access token lama tidak diperbarui; `GET /auth/me` selalu membaca dari database sehingga mencerminkan perubahan nama/email/zona waktu.
+- Kode: 200, 400, 401 (tanpa/dengan token tidak valid), 409.
+
+`GET /reminders/settings` -> 200 `{success, data:{reminder24Hours, reminder6Hours, reminder1Hour, reminderAtDeadline}}` (semua boolean). Bila baris pengaturan belum ada, dibuat dengan semua `true`.
+`PUT /reminders/settings` body: keempat boolean di atas, **semuanya wajib** (non-null; kurang -> 400 `VALIDATION_ERROR` dengan `details[].field`) -> 200 dengan nilai tersimpan.
 
 ## Task CRUD (Task 7)
 Request `POST`/`PUT /tasks`: `title` (wajib, di-trim, 1-200), `description?` (maks 5000), `subject?` (maks 100; kosong -> null), `deadline` (wajib, ISO-8601 dengan offset, mis. `2026-12-01T23:59:00+07:00`; tanggal lampau diperbolehkan), `priority` (wajib: `LOW|MEDIUM|HIGH|URGENT`), `status?` (`TODO|IN_PROGRESS|COMPLETED`; default `TODO` saat POST, pada PUT yang kosong mempertahankan status lama), `version?` (hanya PUT; bila ada dan tidak sama dengan versi saat ini -> 409 `CONFLICT`). Properti tak dikenal (mis. `userId`) diabaikan.
