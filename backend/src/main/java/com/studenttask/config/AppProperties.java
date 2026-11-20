@@ -31,11 +31,19 @@ public record AppProperties(
     public record Jwt(@NotBlank String secret) {
     }
 
+    /**
+     * {@code apiBase}: Telegram Bot API root (tests point it at a local fake). {@code publicBaseUrl}: public HTTPS
+     * origin of this backend, only needed in webhook mode. {@code runnersEnabled=false} keeps the polling runner and
+     * webhook registrar from starting (tests, offline work).
+     */
     public record Telegram(
             @NotBlank String botToken,
             @NotBlank String webhookSecret,
             @NotBlank String botUsername,
-            @DefaultValue("polling") Mode mode) {
+            @DefaultValue("polling") Mode mode,
+            @DefaultValue("https://api.telegram.org") @NotBlank String apiBase,
+            @DefaultValue("") String publicBaseUrl,
+            @DefaultValue("true") boolean runnersEnabled) {
 
         public enum Mode { POLLING, WEBHOOK }
     }

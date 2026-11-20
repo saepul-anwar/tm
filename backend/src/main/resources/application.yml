@@ -40,6 +40,9 @@ app:
     webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
     bot-username: ${TELEGRAM_BOT_USERNAME:}
     mode: ${TELEGRAM_MODE:polling}
+    api-base: ${TELEGRAM_API_BASE:https://api.telegram.org}
+    public-base-url: ${TELEGRAM_PUBLIC_BASE_URL:}
+    runners-enabled: ${TELEGRAM_RUNNERS_ENABLED:true}
   auth:
     # Secure flag of the refresh cookie. Set AUTH_REFRESH_COOKIE_SECURE=false ONLY for local http development.
     refresh-cookie-secure: ${AUTH_REFRESH_COOKIE_SECURE:true}

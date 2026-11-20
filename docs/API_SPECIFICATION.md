@@ -32,10 +32,10 @@ Task milik user lain -> 404. Tidak ada `userId` di request. `deadline` request: 
 | PUT | `/profile` | 5 | ada (Task 12) |
 | GET | `/reminders/settings` | 5 | ada (Task 12) |
 | PUT | `/reminders/settings` | 5 | ada (Task 12) |
-| POST | `/telegram/connect` | 5 | belum diimplementasi |
-| POST | `/telegram/webhook` (publik, header rahasia) | 5 | belum diimplementasi |
-| DELETE | `/telegram/disconnect` | 5 | belum diimplementasi |
-| POST | `/telegram/test` | 5 | belum diimplementasi |
+| POST | `/telegram/connect` | 5 | ada (Task 13) |
+| POST | `/telegram/webhook` (publik, header rahasia) | 5 | ada (Task 13) |
+| DELETE | `/telegram/disconnect` | 5 | ada (Task 13) |
+| POST | `/telegram/test` | 5 | ada (Task 13) |
 | GET | `/calendar/tasks?from&to` (maks 62 hari) | 7 | belum diimplementasi |
 
 ## Auth (Task 5)
@@ -49,6 +49,7 @@ Task milik user lain -> 404. Tidak ada `userId` di request. `deadline` request: 
 - Flag `Secure` cookie: properti `app.auth.refresh-cookie-secure` (env `AUTH_REFRESH_COOKIE_SECURE`, default `true`). Setel `false` **hanya** untuk pengembangan lokal lewat http.
 
 ## Profil dan pengaturan reminder (Task 12)
+Rate limit `PUT /profile`: 10/menit per user (kunci = id user dari token, bukan IP) -> 429 `RATE_LIMITED`. `GET` tidak dibatasi.
 Semua endpoint butuh Bearer token; identitas hanya dari token. Properti tak dikenal di body (mis. `userId`, `id`, `telegramChatId`, `passwordHash`) diabaikan dan tidak pernah diterapkan. Hash password dan `telegram_chat_id` tidak pernah dikembalikan.
 
 `GET /profile` -> 200:
@@ -115,3 +116,15 @@ Definisi (semua relatif terhadap "sekarang" server, hanya task milik user pada t
 `GET /dashboard/upcoming` -> 200 `{success, data:[TaskResponse]}`: task open dengan deadline dalam `[sekarang, sekarang + 7 hari]`, urut deadline naik, maks 50.
 `GET /dashboard/overdue` -> 200 `{success, data:[TaskResponse]}`: task open dengan deadline < sekarang, paling terlambat (deadline tertua) dahulu, maks 50.
 Kode: 200, 401 `UNAUTHENTICATED` tanpa/dengan token tidak valid. Task milik user lain tidak pernah dihitung atau ditampilkan.
+
+## Telegram (Task 13)
+Token bot hanya ada di environment backend; user tidak pernah memasukkannya. Rate limit di bawah per user (id dari token, bukan IP), in-memory, tidak dibagi antar instance; terlampaui -> 429 `RATE_LIMITED`.
+
+- `POST /telegram/connect` (Bearer; 5/menit) -> 200 `{success, data:{deepLink, expiresAt}}`. `deepLink` = `https://t.me/<BOT_USERNAME>?start=<token>`; token 32 byte acak (base64url, 43 karakter), berlaku 10 menit, sekali pakai; hanya hash SHA-256-nya disimpan. Memanggil lagi membatalkan token yang belum dipakai. Bot belum dikonfigurasi (token/username kosong) -> 502 `TELEGRAM_UNAVAILABLE` "Bot Telegram belum dikonfigurasi", tidak ada token dibuat.
+- `POST /telegram/webhook` (**publik**, dipanggil Telegram). Wajib header `X-Telegram-Bot-Api-Secret-Token` sama dengan `TELEGRAM_WEBHOOK_SECRET` (dibandingkan constant-time). Header hilang/salah, atau secret server kosong -> 401 `UNAUTHENTICATED` (fail-closed). Header benar -> selalu 200 dengan body kosong, juga untuk update yang diabaikan atau JSON rusak (agar Telegram tidak mengirim ulang). Hanya pesan teks `/start <token>` dari chat `private` yang diproses; field lain diabaikan. Body maks 64 KiB. Secret yang dikirim ke `setWebhook` hanya boleh berisi `A-Za-z0-9_-` (1-256 karakter; aturan Telegram, belum diverifikasi terhadap API nyata).
+- `DELETE /telegram/disconnect` (Bearer) -> 204; mengosongkan chat id dan `connectedAt`, menghapus token tertaut yang belum dipakai; idempoten.
+- `POST /telegram/test` (Bearer; 3/menit) -> 200 `{success, data:{sent:true}}`; belum terhubung -> 409 `CONFLICT`; Telegram gagal -> 502 `TELEGRAM_UNAVAILABLE` dengan pesan generik (tanpa token/URL). Pesan tes berupa teks biasa bertanda `[TES]`.
+
+Aturan tautan: chat harus `private`; token tidak ada/dipakai -> balasan "tidak valid"; kedaluwarsa -> balasan "kedaluwarsa"; chat sudah terhubung ke akun **lain** -> balasan "sudah terhubung ke akun lain", tidak ada yang berubah dan token **tidak** dihabiskan; user yang sudah terhubung boleh menghubungkan ulang ke chat baru dengan token baru (chat id diganti); chat yang sama dengan user yang sama -> tetap berhasil (idempoten). Pemakaian token serentak: tepat satu yang berhasil. Semua pesan bot berupa teks biasa tanpa `parse_mode`; token tidak pernah dibalas atau dicatat di log.
+
+Mode update (`TELEGRAM_MODE`): `polling` (default, development; satu instance; memanggil `deleteWebhook` saat mulai; tidak berjalan bila token kosong; token palsu/placeholder menghasilkan satu WARN lalu jeda beberapa menit) atau `webhook` (produksi; butuh `TELEGRAM_PUBLIC_BASE_URL` berupa `https://...`, backend memanggil `setWebhook` dengan secret saat start). Properti terkait: `app.telegram.api-base` (env `TELEGRAM_API_BASE`, default `https://api.telegram.org`, dipakai test), `app.telegram.runners-enabled` (env `TELEGRAM_RUNNERS_ENABLED`, default `true`; `false` mematikan polling/registrasi webhook).

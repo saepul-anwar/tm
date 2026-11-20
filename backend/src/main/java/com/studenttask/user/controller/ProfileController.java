@@ -2,6 +2,7 @@ package com.studenttask.user.controller;
 
 import com.studenttask.common.api.ApiResponse;
 import com.studenttask.security.SecurityUtils;
+import com.studenttask.security.UserRateLimiter;
 import com.studenttask.user.dto.ProfileResponse;
 import com.studenttask.user.dto.UpdateProfileRequest;
 import com.studenttask.user.service.ProfileService;
@@ -16,10 +17,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/profile")
 public class ProfileController {
 
-    private final ProfileService service;
+    static final int UPDATE_PER_MINUTE = 10;
 
-    public ProfileController(ProfileService service) {
+    private final ProfileService service;
+    private final UserRateLimiter rateLimiter;
+
+    public ProfileController(ProfileService service, UserRateLimiter rateLimiter) {
         this.service = service;
+        this.rateLimiter = rateLimiter;
     }
 
     @GetMapping
@@ -29,6 +34,9 @@ public class ProfileController {
 
     @PutMapping
     public ApiResponse<ProfileResponse> update(@Valid @RequestBody UpdateProfileRequest request) {
-        return ApiResponse.ok(service.update(SecurityUtils.currentUserId(), request));
+        long userId = SecurityUtils.currentUserId();
+        // Profile updates can run BCrypt (current password check), so cap the per-user rate.
+        rateLimiter.check("profile-update", userId, UPDATE_PER_MINUTE);
+        return ApiResponse.ok(service.update(userId, request));
     }
 }

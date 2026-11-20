@@ -445,4 +445,20 @@ class ProfileIT extends MySqlTestBase {
         assertThat(jdbc.queryForObject("select reminder_24_hours from reminder_settings where user_id = ?",
                 Boolean.class, a.id())).isFalse();
     }
+
+    @Test
+    void profile_put_11th_request_per_minute_returns_429_per_user() throws Exception {
+        Account a = newAccount();
+        for (int i = 0; i < 10; i++) {
+            assertThat(status(putProfile(a, map("fullName", "Budi " + i)))).isEqualTo(200);
+        }
+
+        MvcResult eleventh = putProfile(a, map("fullName", "Budi 11"));
+
+        assertThat(status(eleventh)).isEqualTo(429);
+        assertThat(errorCode(eleventh)).isEqualTo("RATE_LIMITED");
+        // Per user, not per IP: a different account is unaffected; reads are not limited.
+        assertThat(status(putProfile(newAccount(), map("fullName", "Citra")))).isEqualTo(200);
+        assertThat(status(send(a.accessToken(), get("/api/profile"), null))).isEqualTo(200);
+    }
 }
