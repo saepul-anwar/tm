@@ -20,6 +20,7 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 
 /**
  * Stateless API security. JwtAuthenticationFilter and RateLimitFilter are added here (not as beans). CSRF is off because the API
@@ -49,7 +50,8 @@ public class SecurityConfig {
             JsonAuthEntryPoint jsonHandler,
             JwtService jwtService,
             ObjectMapper objectMapper,
-            Clock clock)
+            Clock clock,
+            AppProperties props)
             throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
@@ -61,6 +63,8 @@ public class SecurityConfig {
                         .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'none'; frame-ancestors 'none'"))
                         .referrerPolicy(r -> r.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
                         .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000)))
+                .addFilterBefore(
+                        new OriginCheckFilter(objectMapper, props.cors().allowedOrigins()), CorsFilter.class)
                 .addFilterBefore(new RateLimitFilter(objectMapper, clock), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(new JwtAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(e -> e.authenticationEntryPoint(jsonHandler).accessDeniedHandler(jsonHandler))

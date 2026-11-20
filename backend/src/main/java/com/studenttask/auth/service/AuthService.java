@@ -71,7 +71,11 @@ public class AuthService {
         return userMapper.toProfile(user);
     }
 
-    @Transactional
+    /**
+     * Deliberately not {@code @Transactional}: BCrypt is deliberately slow and must not pin a database connection
+     * inside a transaction. The user lookup runs in the repository's own short transaction and only
+     * {@link RefreshTokenService#issue} (token persistence) is transactional.
+     */
     public AuthTokens login(LoginRequest request) {
         User user = users.findByEmail(normalizeEmail(request.email())).orElse(null);
         String hash = user != null ? user.getPasswordHash() : dummyHash;

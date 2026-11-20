@@ -66,6 +66,11 @@
       <artifactId>bucket4j_jdk17-core</artifactId>
       <version>${bucket4j.version}</version>
     </dependency>
+    <!-- Bounded, expiring store for rate-limit buckets; version managed by the Spring Boot BOM. -->
+    <dependency>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+      <artifactId>caffeine</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>org.springframework.boot</groupId>

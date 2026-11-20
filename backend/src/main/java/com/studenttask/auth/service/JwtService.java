@@ -1,6 +1,8 @@
 package com.studenttask.auth.service;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import com.studenttask.common.error.AppException;
 import com.studenttask.common.error.ErrorCode;
 import com.studenttask.config.AppProperties;
@@ -8,6 +10,7 @@ import com.studenttask.security.AuthenticatedUser;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.text.ParseException;
 import java.time.Instant;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -72,9 +75,26 @@ public class JwtService {
     public AuthenticatedUser parse(String token) {
         try {
             Jwt jwt = decoder.decode(token);
+            requireCoreClaims(token);
             return new AuthenticatedUser(Long.parseLong(jwt.getSubject()), jwt.getClaimAsString(EMAIL_CLAIM));
         } catch (JwtException | NumberFormatException | NullPointerException e) {
             throw new AppException(ErrorCode.UNAUTHENTICATED, "Autentikasi diperlukan.");
+        }
+    }
+
+    /**
+     * exp, sub and iat must be present in the signed payload. This checks the raw claims on purpose: the decoder
+     * accepts tokens without exp (JwtTimestampValidator) and fills in a missing iat as exp minus one second, so
+     * a validator on the decoded Jwt could not tell the difference. The signature was already verified.
+     */
+    private static void requireCoreClaims(String token) {
+        try {
+            JWTClaimsSet claims = SignedJWT.parse(token).getJWTClaimsSet();
+            if (claims.getExpirationTime() == null || claims.getSubject() == null || claims.getIssueTime() == null) {
+                throw new JwtException("Missing required claim");
+            }
+        } catch (ParseException e) {
+            throw new JwtException("Unreadable claims", e);
         }
     }
 }

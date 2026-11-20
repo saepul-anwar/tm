@@ -4,6 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -65,5 +69,91 @@ class RateLimitFilterTest {
             assertThat(call("GET", "/api/auth/me", "10.0.0.5", null).getStatus()).isEqualTo(200);
             assertThat(call("POST", "/api/auth/logout", "10.0.0.5", null).getStatus()).isEqualTo(200);
         }
+    }
+
+    @Test
+    void encoded_or_non_canonical_login_paths_share_the_login_budget() throws Exception {
+        String[] variants = {
+            "/api/auth/%6Cogin", "/api/auth/lo%67in", "/api/auth/login/", "/API/auth/login",
+            "/api/auth/login;x=y", "/api/auth//login", "/api/auth/./login"
+        };
+        for (String variant : variants) {
+            String ip = "10.1.0." + (java.util.Arrays.asList(variants).indexOf(variant) + 1);
+            for (int i = 0; i < 10; i++) {
+                assertThat(call("POST", "/api/auth/login", ip, null).getStatus()).as(variant).isEqualTo(200);
+            }
+            assertThat(call("POST", variant, ip, null).getStatus()).as(variant).isEqualTo(429);
+        }
+    }
+
+    @Test
+    void ipv6_addresses_in_the_same_64_share_one_bucket() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            call("POST", "/api/auth/login", "2001:db8:1:2:0:0:0:" + (i + 1), null);
+        }
+        assertThat(call("POST", "/api/auth/login", "2001:db8:1:2:ffff:eeee:dddd:cccc", null).getStatus())
+                .isEqualTo(429);
+        assertThat(call("POST", "/api/auth/login", "2001:db8:1:3::1", null).getStatus()).isEqualTo(200);
+    }
+
+    /** Clock the test can advance, to drive cache expiry deterministically. */
+    private static final class MutableClock extends Clock {
+        private Instant now = Instant.parse("2026-11-20T00:00:00Z");
+
+        void advance(Duration d) {
+            now = now.plus(d);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return now;
+        }
+    }
+
+    private static void hit(RateLimitFilter f, String ip) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/login");
+        request.setRemoteAddr(ip);
+        f.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
+    }
+
+    @Test
+    void idle_clients_expire_from_the_cache() throws Exception {
+        MutableClock clock = new MutableClock();
+        RateLimitFilter f = new RateLimitFilter(new ObjectMapper(), clock);
+        hit(f, "10.2.0.1");
+        hit(f, "10.2.0.2");
+        assertThat(f.trackedClients()).isEqualTo(2);
+
+        clock.advance(RateLimitFilter.IDLE_EXPIRY.plusSeconds(1));
+
+        assertThat(f.trackedClients()).isZero();
+    }
+
+    @Test
+    void cache_size_is_bounded() throws Exception {
+        RateLimitFilter f = new RateLimitFilter(new ObjectMapper(), Clock.systemUTC(), 50);
+        for (int i = 0; i < 500; i++) {
+            hit(f, "10.3." + (i / 250) + "." + (i % 250 + 1));
+        }
+        assertThat(f.trackedClients()).isLessThanOrEqualTo(50);
+    }
+
+    @Test
+    void client_key_groups_ipv6_by_64_and_leaves_ipv4_alone() {
+        assertThat(RateLimitFilter.clientKey("2001:db8:1:2::1"))
+                .isEqualTo(RateLimitFilter.clientKey("2001:db8:1:2:aaaa:bbbb:cccc:dddd"))
+                .isNotEqualTo(RateLimitFilter.clientKey("2001:db8:1:3::1"));
+        assertThat(RateLimitFilter.clientKey("10.0.0.9")).isEqualTo("10.0.0.9");
+        assertThat(RateLimitFilter.clientKey("::ffff:10.0.0.9")).isEqualTo("10.0.0.9");
     }
 }

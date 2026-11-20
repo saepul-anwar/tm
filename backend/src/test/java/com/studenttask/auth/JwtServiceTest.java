@@ -66,4 +66,42 @@ class JwtServiceTest {
         assertThatThrownBy(() -> jwt.parse("not-a-jwt")).isInstanceOf(AppException.class);
         assertThatThrownBy(() -> jwt.parse("")).isInstanceOf(AppException.class);
     }
+
+    /** Signs exactly the given claims (Spring's NimbusJwtEncoder would add a default iat). */
+    private static String tokenWithClaims(java.util.function.Consumer<com.nimbusds.jwt.JWTClaimsSet.Builder> customizer) {
+        try {
+            com.nimbusds.jwt.JWTClaimsSet.Builder builder = new com.nimbusds.jwt.JWTClaimsSet.Builder().issuer("studenttask");
+            customizer.accept(builder);
+            com.nimbusds.jwt.SignedJWT jwt = new com.nimbusds.jwt.SignedJWT(
+                    new com.nimbusds.jose.JWSHeader(com.nimbusds.jose.JWSAlgorithm.HS256), builder.build());
+            jwt.sign(new com.nimbusds.jose.crypto.MACSigner(SECRET.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            return jwt.serialize();
+        } catch (com.nimbusds.jose.JOSEException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Test
+    void correctly_signed_token_with_all_claims_is_accepted_baseline() {
+        String token = tokenWithClaims(b -> b.subject("5").issueTime(java.util.Date.from(T0)).expirationTime(java.util.Date.from(T0.plusSeconds(60))));
+        assertThat(service(SECRET, T0).parse(token).id()).isEqualTo(5L);
+    }
+
+    @Test
+    void token_without_exp_is_rejected() {
+        String token = tokenWithClaims(b -> b.subject("5").issueTime(java.util.Date.from(T0)));
+        assertThatThrownBy(() -> service(SECRET, T0).parse(token)).isInstanceOf(AppException.class);
+    }
+
+    @Test
+    void token_without_sub_is_rejected() {
+        String token = tokenWithClaims(b -> b.issueTime(java.util.Date.from(T0)).expirationTime(java.util.Date.from(T0.plusSeconds(60))));
+        assertThatThrownBy(() -> service(SECRET, T0).parse(token)).isInstanceOf(AppException.class);
+    }
+
+    @Test
+    void token_without_iat_is_rejected() {
+        String token = tokenWithClaims(b -> b.subject("5").expirationTime(java.util.Date.from(T0.plusSeconds(60))));
+        assertThatThrownBy(() -> service(SECRET, T0).parse(token)).isInstanceOf(AppException.class);
+    }
 }
