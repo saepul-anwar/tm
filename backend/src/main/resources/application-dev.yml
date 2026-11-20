@@ -1,0 +1,7 @@
+# Local development only. No secrets here; they still come from the environment (.env).
+logging:
+  level:
+    com.studenttask: DEBUG
+app:
+  telegram:
+    mode: polling
