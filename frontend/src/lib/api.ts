@@ -90,7 +90,9 @@ export function refreshAccessToken(): Promise<string | null> {
   return refreshInFlight
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+export type PageMeta = { page: number; size: number; totalElements: number; totalPages: number }
+
+async function request<T>(path: string, init: RequestInit): Promise<{ data: T; meta?: PageMeta }> {
   let response = await send(path, init)
 
   if (response.status === 401 && !NO_REFRESH_PATHS.includes(path)) {
@@ -99,9 +101,20 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
 
   if (!response.ok) throw await toApiError(response)
-  if (response.status === 204) return undefined as T
+  if (response.status === 204) return { data: undefined as T }
 
-  const body = (await response.json()) as Envelope<T>
+  const body = (await response.json()) as Envelope<T> & { meta?: PageMeta }
   if (!body.success) throw await toApiError(response)
-  return body.data as T
+  return { data: body.data as T, meta: body.meta }
+}
+
+export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return (await request<T>(path, init)).data
+}
+
+/** Like apiFetch, but also returns the pagination `meta` of list endpoints. */
+export async function apiFetchPage<T>(path: string, init: RequestInit = {}): Promise<{ data: T; meta: PageMeta }> {
+  const { data, meta } = await request<T>(path, init)
+  if (!meta) throw new ApiError(0, "UNKNOWN_ERROR", "Respons server tidak lengkap.")
+  return { data, meta }
 }
