@@ -17,3 +17,6 @@ test-results/
 .vscode/
 *.iml
 .DS_Store
+
+# test caches
+frontend/.vitest/

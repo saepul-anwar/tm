@@ -3,9 +3,11 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useRef, useState, type ReactNode } from "react"
-import { Menu, X } from "lucide-react"
+import { LogOut, Menu, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { isPublicPath } from "@/lib/auth/constants"
+import { useAuth } from "@/lib/auth/AuthProvider"
 import { cn } from "@/lib/utils"
 
 import { NAV_ITEMS } from "./nav-items"
@@ -45,6 +47,31 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 function Brand() {
   return (
     <span className="text-sm font-semibold tracking-tight">{APP_NAME}</span>
+  )
+}
+
+function LogoutButton({ onDone }: { onDone?: () => void }) {
+  const { user, logout } = useAuth()
+
+  return (
+    <div className="mt-auto flex flex-col gap-1 border-t pt-3">
+      {user && (
+        <p className="truncate px-2.5 text-xs text-muted-foreground" title={user.email}>
+          {user.fullName}
+        </p>
+      )}
+      <Button
+        variant="ghost"
+        className="justify-start gap-2.5 px-2.5 text-muted-foreground"
+        onClick={() => {
+          onDone?.()
+          void logout()
+        }}
+      >
+        <LogOut aria-hidden="true" />
+        Keluar
+      </Button>
+    </div>
   )
 }
 
@@ -88,6 +115,7 @@ function MobileDrawer({ onClose }: { onClose: () => void }) {
         <nav aria-label="Navigasi seluler">
           <NavLinks onNavigate={onClose} />
         </nav>
+        <LogoutButton onDone={onClose} />
       </div>
     </div>
   )
@@ -95,6 +123,16 @@ function MobileDrawer({ onClose }: { onClose: () => void }) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const pathname = usePathname()
+
+  if (isPublicPath(pathname)) {
+    return (
+      <main className="min-h-dvh bg-background px-4 py-8 text-foreground md:px-8">
+        <p className="mx-auto mb-6 w-full max-w-sm text-sm font-semibold tracking-tight">{APP_NAME}</p>
+        {children}
+      </main>
+    )
+  }
 
   return (
     <div className="flex min-h-dvh bg-background text-foreground">
@@ -105,6 +143,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <nav aria-label="Navigasi utama">
           <NavLinks />
         </nav>
+        <LogoutButton />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

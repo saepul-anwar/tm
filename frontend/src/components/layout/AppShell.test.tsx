@@ -4,7 +4,16 @@ import { describe, expect, it, vi } from "vitest"
 
 import { AppShell } from "./AppShell"
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard" }))
+const state = vi.hoisted(() => ({ pathname: "/dashboard", logout: vi.fn() }))
+
+vi.mock("next/navigation", () => ({ usePathname: () => state.pathname }))
+vi.mock("@/lib/auth/AuthProvider", () => ({
+  useAuth: () => ({
+    status: "authenticated",
+    user: { id: 1, fullName: "Budi Santoso", email: "budi@example.com", timezone: "Asia/Jakarta" },
+    logout: state.logout,
+  }),
+}))
 
 describe("AppShell", () => {
   it("renders_five_nav_items_in_order", () => {
@@ -41,5 +50,26 @@ describe("AppShell", () => {
 
     await user.click(within(drawer).getByRole("button", { name: "Tutup menu" }))
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("logout_button_calls_logout", async () => {
+    const user = userEvent.setup()
+    state.pathname = "/dashboard"
+    state.logout.mockReset()
+    render(<AppShell>content</AppShell>)
+
+    await user.click(screen.getAllByRole("button", { name: "Keluar" })[0])
+
+    expect(state.logout).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(["/login", "/register"])("hides_navigation_and_logout_on_%s", (path) => {
+    state.pathname = path
+    render(<AppShell>content</AppShell>)
+
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Keluar" })).not.toBeInTheDocument()
+    expect(screen.getByText("content")).toBeInTheDocument()
+    state.pathname = "/dashboard"
   })
 })
