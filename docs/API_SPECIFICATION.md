@@ -1,7 +1,7 @@
 # Spesifikasi API
 
 Sumber: [spec §8](specs/2026-11-20-studenttask-design.md). Semua path di bawah `/api`; JWT `Authorization: Bearer` kecuali ditandai publik.
-Saat ini yang ada: `/actuator/health` (di luar `/api`), endpoint `/api/auth/*` (Task 5), dan CRUD `/api/tasks[/{id}]` (Task 7; daftar/filter dan `/tasks/subjects` menyusul di Task 8). Skema field dan contoh (data sintetis) dilengkapi per fase bersamaan dengan implementasinya.
+Saat ini yang ada: `/actuator/health` (di luar `/api`), endpoint `/api/auth/*` (Task 5), dan CRUD `/api/tasks[/{id}]` (Task 7), serta daftar/filter/sort/pagination `GET /api/tasks` dan `GET /api/tasks/subjects` (Task 8). Skema field dan contoh (data sintetis) dilengkapi per fase bersamaan dengan implementasinya.
 
 ## Format respons
 Sukses: `{ "success": true, "data": ..., "meta": {page,size,totalElements,totalPages} }`.
@@ -18,13 +18,13 @@ Task milik user lain -> 404. Tidak ada `userId` di request. `deadline` request: 
 | POST | `/auth/refresh` (cookie) | 2 | ada |
 | POST | `/auth/logout` (publik, cookie) | 2 | ada |
 | GET | `/auth/me` | 2 | ada |
-| GET | `/tasks` (filter, sort, page) | 3 | belum diimplementasi |
+| GET | `/tasks` (filter, sort, page) | 3 | ada (Task 8) |
 | POST | `/tasks` | 3 | ada (Task 7) |
 | GET | `/tasks/{id}` | 3 | ada (Task 7) |
 | PUT | `/tasks/{id}` | 3 | ada (Task 7) |
 | PATCH | `/tasks/{id}/status` | 3 | ada (Task 7) |
 | DELETE | `/tasks/{id}` | 3 | ada (Task 7) |
-| GET | `/tasks/subjects` | 3 | belum diimplementasi |
+| GET | `/tasks/subjects` | 3 | ada (Task 8) |
 | GET | `/dashboard/summary` | 4 | belum diimplementasi |
 | GET | `/dashboard/upcoming` | 4 | belum diimplementasi |
 | GET | `/dashboard/overdue` | 4 | belum diimplementasi |
@@ -53,3 +53,20 @@ Request `POST`/`PUT /tasks`: `title` (wajib, di-trim, 1-200), `description?` (ma
 `PATCH /tasks/{id}/status`: `{ "status": "COMPLETED" }`. Masuk `COMPLETED` mengisi `completedAt`; keluar dari `COMPLETED` mengosongkannya.
 Response `TaskResponse`: `id,title,description,subject,deadline(UTC),priority,status,completedAt,createdAt,updatedAt,version,deadlineCategory` (`deadlineCategory` selalu `null` sampai Task 10).
 Kode: 201 (POST), 200 (GET/PUT/PATCH), 204 (DELETE), 400 `VALIDATION_ERROR` (termasuk enum/format tanggal salah dan `{id}` non-numerik), 401, 404 `NOT_FOUND` (tidak ada atau milik user lain, pesan identik), 409 `CONFLICT`. Menghapus task ikut menghapus `notification_logs` (FK cascade).
+
+## Daftar task (Task 8)
+`GET /tasks` -> 200 `{success,data:[TaskResponse],meta:{page,size,totalElements,totalPages}}`. Hanya task milik user pada token; `userId` di query diabaikan.
+| Param | Aturan |
+|---|---|
+| `q` | judul mengandung teks (case-insensitive). `%`, `_`, dan `\` dianggap literal (bukan wildcard). Kosong/spasi = tanpa filter |
+| `subject` | sama persis dengan mata kuliah |
+| `status` | `TODO`, `IN_PROGRESS`, `COMPLETED` (huruf besar) |
+| `priority` | `LOW`, `MEDIUM`, `HIGH`, `URGENT` (huruf besar) |
+| `deadlineFrom` | ISO-8601 dengan `Z` atau offset (`+` harus di-encode `%2B`); **inklusif** (`deadline >= from`) |
+| `deadlineTo` | ISO-8601 sama; **eksklusif** (`deadline < to`), jadi rentang berurutan tidak tumpang tindih |
+| `sort` | `deadline` (default), `priority`, `createdAt`, `completedAt` (daftar putih; nilai lain -> 400) |
+| `dir` | `asc` (default), `desc` |
+| `page` | mulai 0, default 0 (negatif -> 400) |
+| `size` | default 10, 1-50 (di luar rentang -> 400) |
+Urutan: `sort=priority` memakai kolom `priority_rank` (LOW=1 .. URGENT=4), jadi `dir=desc` menaruh URGENT lebih dulu. Seri diurutkan `deadline` naik lalu `id` naik agar paging stabil. Halaman melebihi halaman terakhir -> `data: []` dengan `meta` tetap benar. Nilai enum/sort/dir/tanggal tidak valid -> 400 `VALIDATION_ERROR`. Halaman Completed: `status=COMPLETED&sort=completedAt&dir=desc`.
+`GET /tasks/subjects` -> 200 `data: ["Biologi","Fisika",...]`: mata kuliah unik, non-null, terurut, milik user.

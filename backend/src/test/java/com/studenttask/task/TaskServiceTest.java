@@ -135,7 +135,7 @@ class TaskServiceTest {
         assertNotFound(() -> service.update(USER, 99L, request(null, null)));
         assertNotFound(() -> service.updateStatus(USER, 99L, TaskStatus.COMPLETED));
         assertNotFound(() -> service.delete(USER, 99L));
-        verify(repo, never()).delete(any());
+        verify(repo, never()).delete(any(Task.class));
         verify(repo, never()).findById(any());
     }
 

@@ -2,15 +2,20 @@ package com.studenttask.task.service;
 
 import com.studenttask.common.error.AppException;
 import com.studenttask.common.error.ErrorCode;
+import com.studenttask.task.dto.TaskFilter;
 import com.studenttask.task.dto.TaskRequest;
 import com.studenttask.task.dto.TaskResponse;
 import com.studenttask.task.entity.Task;
 import com.studenttask.task.entity.TaskStatus;
 import com.studenttask.task.mapper.TaskMapper;
 import com.studenttask.task.repository.TaskRepository;
+import com.studenttask.task.repository.TaskSpecifications;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +47,17 @@ public class TaskService {
     @Transactional(readOnly = true)
     public TaskResponse get(long userId, long id) {
         return mapper.toResponse(find(userId, id));
+    }
+
+    /** Filtered, sorted page of the user's own tasks; ordering comes from the pageable. */
+    @Transactional(readOnly = true)
+    public Page<TaskResponse> list(long userId, TaskFilter filter, Pageable pageable) {
+        return tasks.findAll(TaskSpecifications.forUser(userId, filter), pageable).map(mapper::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> subjects(long userId) {
+        return tasks.findDistinctSubjects(userId);
     }
 
     /** Full replace. A null status keeps the current one; a non-null request version must match. */
