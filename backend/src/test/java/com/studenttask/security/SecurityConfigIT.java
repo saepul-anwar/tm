@@ -67,10 +67,12 @@ class SecurityConfigIT extends MySqlTestBase {
 
     @Test
     void telegram_webhook_is_public() throws Exception {
-        // The webhook controller arrives in a later task, so a permitted request reaches routing and yields 404.
-        mvc.perform(post("/api/telegram/webhook").contentType("application/json").content("{}"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+        // Public = reachable without a JWT. Since Task 13 the controller itself authenticates the caller with the
+        // webhook secret header: with it the call succeeds (200) and no Bearer token is needed.
+        mvc.perform(post("/api/telegram/webhook").header("X-Telegram-Bot-Api-Secret-Token",
+                                "test-only-synthetic-webhook-secret")
+                        .contentType("application/json").content("{}"))
+                .andExpect(status().isOk());
     }
 
     @Test

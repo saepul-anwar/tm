@@ -15,7 +15,8 @@ docker compose up -d --build
 Frontend http://localhost:3000, backend http://localhost:8080/actuator/health. Detail: [DEPLOYMENT_GUIDE](docs/DEPLOYMENT_GUIDE.md).
 
 ## Variabel environment (nama saja)
-`DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_MODE`, `BACKEND_URL`.
+`DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_MODE`, `TELEGRAM_PUBLIC_BASE_URL`, `BACKEND_URL`.
+- `TELEGRAM_WEBHOOK_SECRET` wajib cocok `[A-Za-z0-9_-]{32,256}` (mis. `openssl rand -hex 32`) dan `TELEGRAM_API_BASE` (opsional) wajib `https://`; kalau tidak, backend gagal start tanpa menampilkan nilainya.
 
 ## Test
 ```bash

@@ -27,6 +27,12 @@ public class User {
     @Column(name = "password_hash", nullable = false, length = 100)
     private String passwordHash;
 
+    @Column(name = "telegram_chat_id")
+    private Long telegramChatId;
+
+    @Column(name = "telegram_connected_at")
+    private Instant telegramConnectedAt;
+
     @Column(nullable = false, length = 64)
     private String timezone;
 
@@ -66,6 +72,27 @@ public class User {
 
     public String getTimezone() {
         return timezone;
+    }
+
+    /** Whether a Telegram chat is linked; the chat id itself is deliberately not exposed by this class. */
+    public boolean isTelegramConnected() {
+        return telegramChatId != null;
+    }
+
+    public Instant getTelegramConnectedAt() {
+        return telegramConnectedAt;
+    }
+
+    public void changeProfile(String fullName, String email, String timezone, Instant now) {
+        this.fullName = fullName;
+        this.email = email;
+        this.timezone = timezone;
+        this.updatedAt = now;
+    }
+
+    public void changePasswordHash(String passwordHash, Instant now) {
+        this.passwordHash = passwordHash;
+        this.updatedAt = now;
     }
 
     public Instant getCreatedAt() {

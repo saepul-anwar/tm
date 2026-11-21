@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
+import { Suspense } from "react"
 
 import { AppShell } from "@/components/layout/AppShell"
 import { AuthProvider } from "@/lib/auth/AuthProvider"
@@ -21,9 +22,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full font-sans">
-        <AuthProvider>
-          <AppShell>{children}</AppShell>
-        </AuthProvider>
+        {/* The shell reads the pathname; dynamic segments (e.g. /tasks/[id]) need a Suspense boundary to prerender. */}
+        <Suspense>
+          <AuthProvider>
+            <AppShell>{children}</AppShell>
+          </AuthProvider>
+        </Suspense>
       </body>
     </html>
   )

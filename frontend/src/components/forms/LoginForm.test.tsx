@@ -54,6 +54,22 @@ describe("LoginForm", () => {
     expect(loginCalls).toEqual([["budi@example.com", "salah12345"]])
   })
 
+  it("shows_a_clear_message_on_403_instead_of_the_generic_error", async () => {
+    const actor = userEvent.setup()
+    loginImpl = async () => {
+      throw new ApiError(403, "FORBIDDEN", "x", [])
+    }
+    render(<LoginForm />)
+
+    await actor.type(screen.getByLabelText("Email"), "budi@example.com")
+    await actor.type(screen.getByLabelText("Kata sandi"), "benar12345")
+    await actor.click(screen.getByRole("button", { name: "Masuk" }))
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("Permintaan ditolak")
+    expect(alert).not.toHaveTextContent("Terjadi kesalahan.")
+  })
+
   it("shows_rate_limit_message_on_429", async () => {
     const actor = userEvent.setup()
     loginImpl = async () => {
