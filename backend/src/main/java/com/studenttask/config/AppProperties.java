@@ -101,14 +101,24 @@ public record AppProperties(
         }
     }
 
+    /**
+     * {@code enabled=false} (env {@code REMINDER_SCHEDULER_ENABLED}) switches off the scheduled triggers of the
+     * reminder tick and the cleanup job; the beans stay available so tests can call them directly.
+     * {@code sendPause} is the pause between two Telegram sends inside one tick. {@code cleanupCron} is evaluated in
+     * UTC; {@code cleanupBatchSize} bounds each DELETE so no long locks are held.
+     */
     public record Reminder(
+            @DefaultValue("true") boolean enabled,
             @DefaultValue("PT60S") @NotNull Duration pollInterval,
             @DefaultValue("PT10M") @NotNull Duration catchUpWindow,
             @DefaultValue("200") @Positive int batchSize,
             @DefaultValue("PT5M") @NotNull Duration sendingTimeout,
             @DefaultValue("4") @Positive int maxAttempts,
             @DefaultValue({"PT1M", "PT5M", "PT15M"}) @NotEmpty List<Duration> retryBackoff,
-            @DefaultValue("90") @Positive int logRetentionDays) {
+            @DefaultValue("90") @Positive int logRetentionDays,
+            @DefaultValue("PT0.04S") @NotNull Duration sendPause,
+            @DefaultValue("0 30 3 * * *") @NotBlank String cleanupCron,
+            @DefaultValue("1000") @Positive int cleanupBatchSize) {
     }
 
     public record Cors(@NotEmpty List<String> allowedOrigins) {

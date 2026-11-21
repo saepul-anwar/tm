@@ -77,4 +77,63 @@ final class ReminderTestData {
     int countLogs(long taskId) {
         return jdbc.queryForObject("select count(*) from notification_logs where task_id = ?", Integer.class, taskId);
     }
+
+    /** Removes everything the scheduler could pick up (other test classes share the database). */
+    void deleteAll() {
+        jdbc.update("delete from notification_logs");
+        jdbc.update("delete from tasks");
+        jdbc.update("delete from users");
+    }
+
+    void settings(long userId, boolean h24, boolean h6, boolean h1, boolean atDeadline) {
+        LocalDateTime now = utc(T0);
+        jdbc.update("insert into reminder_settings (user_id, reminder_24_hours, reminder_6_hours, reminder_1_hour,"
+                + " reminder_at_deadline, created_at, updated_at) values (?,?,?,?,?,?,?)", userId, h24, h6, h1,
+                atDeadline, now, now);
+    }
+
+    void setTaskStatus(long taskId, String status) {
+        jdbc.update("update tasks set status = ? where id = ?", status, taskId);
+    }
+
+    void setDeadline(long taskId, Instant deadline) {
+        jdbc.update("update tasks set deadline = ? where id = ?", utc(deadline), taskId);
+    }
+
+    void deleteTask(long taskId) {
+        jdbc.update("delete from tasks where id = ?", taskId);
+    }
+
+    void disconnectTelegram(long userId) {
+        jdbc.update("update users set telegram_chat_id = null, telegram_connected_at = null where id = ?", userId);
+    }
+
+    void setTimezone(long userId, String timezone) {
+        jdbc.update("update users set timezone = ? where id = ?", timezone, userId);
+    }
+
+    /** Bulk insert of TODO tasks for one user, all with the same deadline. */
+    void tasks(long userId, int count, Instant deadline) {
+        LocalDateTime now = utc(T0);
+        jdbc.batchUpdate("insert into tasks (user_id, title, subject, deadline, priority, status, created_at, updated_at)"
+                + " values (?, ?, 'Algoritma', ?, 'HIGH', 'TODO', ?, ?)", java.util.stream.IntStream.range(0, count)
+                .mapToObj(i -> new Object[] {userId, "Tugas Sintetis " + i, utc(deadline), now, now}).toList());
+    }
+
+    int countSent() {
+        return jdbc.queryForObject("select count(*) from notification_logs where status = 'SENT'", Integer.class);
+    }
+
+    int countLogs() {
+        return jdbc.queryForObject("select count(*) from notification_logs", Integer.class);
+    }
+
+    /** Bulk insert of TODO tasks for one user with deadlines first, first+step, first+2*step, ... */
+    void spreadTasks(long userId, int count, Instant first, java.time.Duration step) {
+        LocalDateTime now = utc(T0);
+        jdbc.batchUpdate("insert into tasks (user_id, title, subject, deadline, priority, status, created_at, updated_at)"
+                + " values (?, ?, 'Algoritma', ?, 'HIGH', ?, ?, ?)", java.util.stream.IntStream.range(0, count)
+                .mapToObj(i -> new Object[] {userId, "Tugas Sintetis " + i, utc(first.plus(step.multipliedBy(i))),
+                        i % 4 == 0 ? "COMPLETED" : "TODO", now, now}).toList());
+    }
 }

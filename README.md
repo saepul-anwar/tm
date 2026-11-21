@@ -15,7 +15,8 @@ docker compose up -d --build
 Frontend http://localhost:3000, backend http://localhost:8080/actuator/health. Detail: [DEPLOYMENT_GUIDE](docs/DEPLOYMENT_GUIDE.md).
 
 ## Variabel environment (nama saja)
-`DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_MODE`, `TELEGRAM_PUBLIC_BASE_URL`, `BACKEND_URL`.
+`DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_MODE`, `TELEGRAM_PUBLIC_BASE_URL`, `REMINDER_SCHEDULER_ENABLED`, `REMINDER_POLL_INTERVAL`, `REMINDER_CLEANUP_CRON`, `BACKEND_URL`.
+- Reminder: `REMINDER_SCHEDULER_ENABLED` (default `true`) menyalakan polling reminder (tiap `REMINDER_POLL_INTERVAL`, format ISO-8601, default `PT60S`) dan pembersihan harian (`REMINDER_CLEANUP_CRON`, cron Spring 6 field, UTC, default `0 30 3 * * *`). Isi `false` untuk mematikan keduanya. Reminder yang waktunya lebih tua dari 10 menit tidak pernah dikirim terlambat, jadi menyalakan scheduler tidak mengirim ulang tugas lama. Start pertama menunggu satu interval; log hanya muncul bila ada yang dikirim.
 - `TELEGRAM_WEBHOOK_SECRET` wajib cocok `[A-Za-z0-9_-]{32,256}` (mis. `openssl rand -hex 32`) dan `TELEGRAM_API_BASE` (opsional) wajib `https://`; kalau tidak, backend gagal start tanpa menampilkan nilainya.
 
 ## Test
