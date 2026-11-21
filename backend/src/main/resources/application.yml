@@ -49,10 +49,15 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
   reminder:
-    poll-interval: PT60S
+    # Set REMINDER_SCHEDULER_ENABLED=false to stop the scheduled reminder tick and the daily cleanup.
+    enabled: ${REMINDER_SCHEDULER_ENABLED:true}
+    poll-interval: ${REMINDER_POLL_INTERVAL:PT60S}
     catch-up-window: PT10M
     batch-size: 200
     sending-timeout: PT5M
     max-attempts: 4
     retry-backoff: PT1M,PT5M,PT15M
     log-retention-days: 90
+    send-pause: PT0.04S
+    cleanup-cron: ${REMINDER_CLEANUP_CRON:0 30 3 * * *}
+    cleanup-batch-size: 1000

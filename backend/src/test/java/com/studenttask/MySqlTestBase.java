@@ -11,7 +11,8 @@ import org.testcontainers.utility.DockerImageName;
  * Base class for all integration tests. A single MySQL 8 container is shared by the whole test JVM
  * (started once, removed by Testcontainers when the JVM exits). All values below are synthetic.
  */
-@SpringBootTest
+// Reminder triggers are called directly by tests with an injected clock: scheduler off, no pause between sends.
+@SpringBootTest(properties = {"app.reminder.enabled=false", "app.reminder.send-pause=PT0S"})
 @Import(DirectTelegramDispatcherConfig.class)
 public abstract class MySqlTestBase {
 
