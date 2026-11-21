@@ -36,7 +36,7 @@ Task milik user lain -> 404. Tidak ada `userId` di request. `deadline` request: 
 | POST | `/telegram/webhook` (publik, header rahasia; asinkron, batas 5 perintah/menit per chat) | 5 | ada (Task 13) |
 | DELETE | `/telegram/disconnect` | 5 | ada (Task 13) |
 | POST | `/telegram/test` | 5 | ada (Task 13) |
-| GET | `/calendar/tasks?from&to` (maks 62 hari) | 7 | belum diimplementasi |
+| GET | `/calendar/tasks?from&to` (maks 62 hari) | 7 | ada (Task 17) |
 
 ## Auth (Task 5)
 - `POST /auth/register` body `{fullName,email,password,confirmPassword}` -> 201 `{id,fullName,email,timezone}`. Email di-lowercase, unik (409 `CONFLICT`). Password 8-72 **byte** UTF-8, min 1 huruf + 1 angka; `confirmPassword` harus sama (400 `VALIDATION_ERROR` dengan `details[].field`).
@@ -134,3 +134,12 @@ Perintah bot di chat `private`: `/stop` memutus akun yang terhubung ke chat itu 
 Aturan tautan: chat harus `private`; token tidak ada/dipakai -> balasan "tidak valid"; kedaluwarsa -> balasan "kedaluwarsa"; chat sudah terhubung ke akun **lain** -> balasan "sudah terhubung ke akun lain", tidak ada yang berubah dan token **tidak** dihabiskan; user yang sudah terhubung boleh menghubungkan ulang ke chat baru dengan token baru (chat id diganti); chat yang sama dengan user yang sama -> tetap berhasil (idempoten). Pemakaian token serentak: tepat satu yang berhasil. Semua pesan bot berupa teks biasa tanpa `parse_mode`; token tidak pernah dibalas atau dicatat di log.
 
 Mode update (`TELEGRAM_MODE`): `polling` (default, development; satu instance; memanggil `deleteWebhook` saat mulai; tidak berjalan bila token kosong; token palsu/placeholder menghasilkan satu WARN lalu jeda beberapa menit) atau `webhook` (produksi; butuh `TELEGRAM_PUBLIC_BASE_URL` berupa `https://...`, backend memanggil `setWebhook` dengan secret saat start). Properti terkait: `app.telegram.api-base` (env `TELEGRAM_API_BASE`, default `https://api.telegram.org`; **wajib `https://` dengan host dan tanpa user-info**, kalau tidak aplikasi gagal start; `http://` hanya diizinkan bila `app.telegram.allow-insecure-api-base=true` (default `false`, hanya untuk test dengan fake server lokal; jangan disetel di lingkungan nyata)), `app.telegram.runners-enabled` (env `TELEGRAM_RUNNERS_ENABLED`, default `true`; `false` mematikan polling/registrasi webhook).
+
+## Kalender (Task 17)
+`GET /calendar/tasks?from=<ISO>&to=<ISO>` (Bearer) -> 200 `data: [{id,title,subject,deadline,priority,status}]` untuk tampilan bulan/minggu/hari.
+- `from` dan `to` wajib, ISO-8601 date-time **dengan** `Z` atau offset (`+` harus di-encode `%2B`); hanya tanggal (`2026-12-01`), tanpa zona, atau teks lain -> 400 `VALIDATION_ERROR` dengan `details[].field` = `from`/`to`.
+- Rentang `[from, to)`: `from` **inklusif**, `to` **eksklusif** (deadline tepat di `to` tidak termasuk).
+- 400 `VALIDATION_ERROR` (field `to`) bila `from >= to` atau rentang > 62 hari (tepat 62 hari diperbolehkan; 62 hari + 1 ms ditolak).
+- Termasuk task berstatus `COMPLETED`. Urutan `deadline` naik, lalu `id` naik. Hanya task milik user yang login.
+- Ringan: tanpa `description`, `userId`, atau meta paging. `deadline` selalu UTC (`Z`).
+- Batas pengaman 1000 task per respons (yang paling awal menurut urutan); tidak ada penanda terpotong, jadi klien memakai rentang sempit (satu bulan/minggu/hari). Tanpa token -> 401.

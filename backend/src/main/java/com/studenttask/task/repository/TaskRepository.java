@@ -1,5 +1,6 @@
 package com.studenttask.task.repository;
 
+import com.studenttask.calendar.dto.CalendarTaskResponse;
 import com.studenttask.task.entity.Task;
 import com.studenttask.task.entity.TaskStatus;
 import java.time.Instant;
@@ -52,4 +53,11 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     @Query("select t from Task t where t.userId = :userId and t.status <> :done "
             + "order by t.priorityRank desc, t.deadline asc, t.id asc")
     List<Task> findTopPriority(@Param("userId") long userId, @Param("done") TaskStatus done, Pageable limit);
+
+    /** Calendar rows (no description) with deadline in [from, to), any status; served by ix_tasks_user_deadline. */
+    @Query("select new com.studenttask.calendar.dto.CalendarTaskResponse(t.id, t.title, t.subject, t.deadline, "
+            + "t.priority, t.status) from Task t where t.userId = :userId "
+            + "and t.deadline >= :from and t.deadline < :to order by t.deadline asc, t.id asc")
+    List<CalendarTaskResponse> findCalendarTasks(@Param("userId") long userId, @Param("from") Instant from,
+            @Param("to") Instant to, Pageable limit);
 }
