@@ -63,6 +63,7 @@ public class SecurityConfig {
                         .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'none'; frame-ancestors 'none'"))
                         .referrerPolicy(r -> r.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
                         .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000)))
+                .addFilterBefore(new RequestSizeLimitFilter(objectMapper), CorsFilter.class)
                 .addFilterBefore(
                         new OriginCheckFilter(objectMapper, props.cors().allowedOrigins()), CorsFilter.class)
                 .addFilterBefore(new RateLimitFilter(objectMapper, clock), UsernamePasswordAuthenticationFilter.class)

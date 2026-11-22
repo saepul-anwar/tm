@@ -3,6 +3,7 @@ package com.studenttask.common.error;
 import com.studenttask.common.api.ApiResponse;
 import com.studenttask.common.api.FieldError;
 import jakarta.validation.ConstraintViolationException;
+import java.sql.SQLException;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final int MYSQL_NO_REFERENCED_ROW = 1452;
     private static final String GENERIC_ERROR = "Terjadi kesalahan pada server.";
 
     @ExceptionHandler(AppException.class)
@@ -96,8 +98,23 @@ public class GlobalExceptionHandler {
     /** Last resort: log the exception server-side only (type + trace), return a generic body. */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleUnknown(Exception ex) {
+        if (isMissingReferencedUser(ex)) {
+            // A still-valid access token whose user row no longer exists: a write hit the users foreign key.
+            log.warn("Write rejected: authenticated user no longer exists");
+            return respond(ErrorCode.UNAUTHENTICATED, "Autentikasi diperlukan.", null);
+        }
         log.error("Unhandled exception: {}", ex.getClass().getName(), ex);
         return respond(ErrorCode.INTERNAL_ERROR, GENERIC_ERROR, null);
+    }
+
+    /** MySQL ER_NO_REFERENCED_ROW_2: every foreign key written from the API points at users(id). */
+    private static boolean isMissingReferencedUser(Throwable ex) {
+        for (Throwable cause = ex; cause != null && cause.getCause() != cause; cause = cause.getCause()) {
+            if (cause instanceof SQLException sql && sql.getErrorCode() == MYSQL_NO_REFERENCED_ROW) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static ResponseEntity<ApiResponse<Void>> respond(

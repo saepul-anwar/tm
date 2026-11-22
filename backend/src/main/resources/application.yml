@@ -8,6 +8,9 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+  servlet:
+    multipart:
+      enabled: false
   jpa:
     open-in-view: false
     hibernate:
@@ -22,6 +25,10 @@ spring:
 
 server:
   port: 8080
+  tomcat:
+    # No endpoint takes form posts or file uploads; JSON bodies are capped by RequestSizeLimitFilter.
+    max-http-form-post-size: 64KB
+    max-swallow-size: 256KB
 
 management:
   endpoints:

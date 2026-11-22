@@ -11,6 +11,7 @@ public enum ErrorCode {
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE),
     NOT_ACCEPTABLE(HttpStatus.NOT_ACCEPTABLE),
+    PAYLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS),
     TELEGRAM_UNAVAILABLE(HttpStatus.BAD_GATEWAY),
     /** Unexpected server failure; never carries internal detail. */
