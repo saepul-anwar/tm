@@ -8,15 +8,20 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * Base class for all integration tests. A single MySQL 8 container is shared by the whole test JVM
+ * Base class for all integration tests. A single MySQL 8.4 (LTS) container is shared by the whole test JVM
  * (started once, removed by Testcontainers when the JVM exits). All values below are synthetic.
  */
-@SpringBootTest
+// Reminder triggers are called directly by tests with an injected clock: scheduler off, no pause between sends.
+@SpringBootTest(properties = {"app.reminder.enabled=false", "app.reminder.send-pause=PT0S"})
 @Import(DirectTelegramDispatcherConfig.class)
 public abstract class MySqlTestBase {
 
-    private static final MySQLContainer<?> MYSQL =
-            new MySQLContainer<>(DockerImageName.parse("mysql:8")).withDatabaseName("studenttask_test");
+    // mysql:8.4 pinned by digest; keep in sync with docker-compose.yml.
+    private static final DockerImageName MYSQL_IMAGE = DockerImageName
+            .parse("mysql@sha256:a81d043930e51745522bd5c430961cf8286f0a23f0a9a2a6e0108f7ea71b0902")
+            .asCompatibleSubstituteFor("mysql");
+
+    private static final MySQLContainer<?> MYSQL = new MySQLContainer<>(MYSQL_IMAGE).withDatabaseName("studenttask_test");
 
     static {
         MYSQL.start();

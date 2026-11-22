@@ -110,4 +110,23 @@ class GlobalExceptionHandlerTest {
         assertThat(ErrorCode.UNSUPPORTED_MEDIA_TYPE.status()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
         assertThat(ErrorCode.NOT_ACCEPTABLE.status()).isEqualTo(HttpStatus.NOT_ACCEPTABLE);
     }
+
+    @Test
+    void missing_referenced_user_foreign_key_failure_maps_to_401_not_500() {
+        java.sql.SQLException fk = new java.sql.SQLIntegrityConstraintViolationException("fk_tasks_user", "23000", 1452);
+        ResponseEntity<ApiResponse<Void>> res = handler.handleUnknown(
+                new org.springframework.dao.DataIntegrityViolationException("could not execute statement", fk));
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(res.getBody().error().code()).isEqualTo("UNAUTHENTICATED");
+    }
+
+    @Test
+    void other_integrity_failures_stay_500() {
+        java.sql.SQLException duplicate = new java.sql.SQLIntegrityConstraintViolationException("dup", "23000", 1062);
+        ResponseEntity<ApiResponse<Void>> res = handler.handleUnknown(
+                new org.springframework.dao.DataIntegrityViolationException("could not execute statement", duplicate));
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
 }
