@@ -68,12 +68,15 @@ Batasan yang sudah tercatat di komentar kode (diterima untuk MVP satu instance):
 
 | ID | Sev | Temuan | Keputusan | Status |
 |---|---|---|---|---|
-| C-F1 | MEDIUM | `mysql:8.0` sudah end-of-life. | Pemilik menyetujui `mysql:8.4` LTS. | Task 20 |
+| C-F1 | MEDIUM | `mysql:8.0` sudah end-of-life. | Pemilik menyetujui `mysql:8.4` LTS. | Selesai (Task 20): Compose dan `MySqlTestBase` memakai 8.4 dipin digest; upgrade in-place dari volume 8.0 diverifikasi. |
 | C-F2 | LOW | Spring Boot 3.5.16 mungkin di luar dukungan open-source; daftar dependensi belum terverifikasi. | Pemilik: tetap di 3.5. Upgrade ke Boot 4 hanya sebagai pekerjaan terpisah sebelum online; jalankan OSV-Scanner atau `dependency-check`. | Diterima / terbuka sebelum online |
 | C-F3 | LOW | Tidak ada batas ukuran body JSON. | Diperbaiki (V1 di bagian 1). | Selesai |
 | C-F4 | LOW | CSP frontend mengizinkan `'unsafe-inline'`; tidak ada HSTS. | CSP nonce dan HSTS dikerjakan sebelum online. | Terbuka sebelum online |
 | C-F5 | LOW | JWT user yang dihapus tetap diterima ≤15 menit. | Tidak terjangkau (tidak ada endpoint hapus akun). Respons 500 yang menyertainya diperbaiki (V2). Tambahkan pengecekan di `/refresh` saat fitur hapus akun dibuat. | Diterima |
-| C-F6 | LOW | Base image Docker tidak dipin ke digest. | Dipin di Task 20. | Task 20 |
-| C-F7 | LOW | `.env.example` tidak lengkap. | Dilengkapi di Task 20. | Task 20 |
+| C-F6 | LOW | Base image Docker tidak dipin ke digest. | Dipin di Task 20. | Selesai: semua base image (mysql, temurin jdk/jre-alpine, node:22-alpine) dipin ke digest. |
+| C-F7 | LOW | `.env.example` tidak lengkap. | Dilengkapi di Task 20. | Selesai: daftar variabel lengkap diserahkan ke pemilik untuk disalin ke `.env.example` (agent tidak boleh menulis berkas itu). |
 | C-F8 | INFO | Cookie `st_session` bisa dipalsukan (hanya UX; API tetap butuh JWT). | Diterima. | Diterima |
-| C-F9 | INFO | `shadcn` (CLI) ada di `dependencies`; sumber 4 temuan moderate `npm audit`. | Dipindah ke `devDependencies`. | Segera |
+| C-F9 | INFO | `shadcn` (CLI) ada di `dependencies`; sumber 4 temuan moderate `npm audit`. | Dipindah ke `devDependencies`. | Selesai (commit `37a1354`) |
+
+## 4. Task 20: konfigurasi lokal (infrastruktur)
+Hosting ditetapkan LOKAL saja (2026-11-21); semua butir "wajib sebelum online" di atas tetap terbuka dan didaftar di [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md). Perubahan: MySQL 8.4 LTS dipin digest; semua base image dipin digest; Compose: port host dapat diatur tetapi tetap 127.0.0.1, `no-new-privileges`, backend/frontend `read_only` + `cap_drop: ALL`, batas memori/proses, rotasi log; skrip backup/restore tanpa rahasia di command line host. Belum ada pemindaian image atau alat otomatis (TODO: verify).

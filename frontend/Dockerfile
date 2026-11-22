@@ -1,10 +1,12 @@
 # syntax=docker/dockerfile:1
-FROM node:22-alpine AS deps
+# Base image: node:22-alpine, dipin ke digest (dicek 2026-11-22). Perbarui digest dengan sengaja, bukan otomatis.
+ARG NODE_IMAGE=node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a
+FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:22-alpine AS build
+FROM ${NODE_IMAGE} AS build
 WORKDIR /app
 # next.config.ts membekukan rewrite /api/* saat build, jadi BACKEND_URL wajib ada di sini.
 ARG BACKEND_URL
@@ -13,7 +15,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:22-alpine AS runner
+FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 ARG BACKEND_URL
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000 BACKEND_URL=${BACKEND_URL}

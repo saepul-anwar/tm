@@ -1,6 +1,6 @@
 # Desain Database
 
-DDL lengkap ada di spec §7 dan diterapkan oleh `backend/src/main/resources/db/migration/V1__init.sql` (sumber kebenaran). MySQL 8.0, InnoDB, utf8mb4.
+DDL lengkap ada di spec §7 dan diterapkan oleh `backend/src/main/resources/db/migration/V1__init.sql` (sumber kebenaran). MySQL 8.4 LTS, InnoDB, utf8mb4.
 
 | Tabel | Fungsi | Kunci/indeks penting |
 |---|---|---|
@@ -19,7 +19,7 @@ DDL lengkap ada di spec §7 dan diterapkan oleh `backend/src/main/resources/db/m
 - ERD: [ERD.md](ERD.md).
 
 ## EXPLAIN query kandidat scheduler (Phase 6)
-Query: `ReminderCandidateRepository` (satu query per jenis reminder; contoh di bawah untuk `H1`). Diukur di MySQL 8 nyata (Testcontainers, `ReminderCandidateRepositoryIT.explain_uses_a_range_index_on_tasks_and_not_a_full_scan`) dengan 6.000 task (6 user), 72.000 baris `notification_logs`, setelah `ANALYZE TABLE`:
+Query: `ReminderCandidateRepository` (satu query per jenis reminder; contoh di bawah untuk `H1`). Diukur di MySQL 8 nyata (angka di tabel diambil saat tes memakai tag floating `mysql:8`; tes sekarang berjalan di 8.4; TODO: verify angka pada 8.4) (Testcontainers, `ReminderCandidateRepositoryIT.explain_uses_a_range_index_on_tasks_and_not_a_full_scan`) dengan 6.000 task (6 user), 72.000 baris `notification_logs`, setelah `ANALYZE TABLE`:
 
 | table | type | key | rows | Extra |
 |---|---|---|---|---|

@@ -1,12 +1,12 @@
 # Spesifikasi API
 
 Sumber: [spec §8](specs/2026-11-20-studenttask-design.md). Semua path di bawah `/api`; JWT `Authorization: Bearer` kecuali ditandai publik.
-Saat ini yang ada: `/actuator/health` (di luar `/api`), endpoint `/api/auth/*` (Task 5), dan CRUD `/api/tasks[/{id}]` (Task 7), serta daftar/filter/sort/pagination `GET /api/tasks` dan `GET /api/tasks/subjects` (Task 8), dan `/api/dashboard/*` (Task 10). Skema field dan contoh (data sintetis) dilengkapi per fase bersamaan dengan implementasinya.
+Semua endpoint di tabel bawah sudah ada (MVP lengkap). Keamanan lintas-endpoint (batas body 128 KiB -> 413 `PAYLOAD_TOO_LARGE`, header keamanan, tanpa jejak tumpukan di error) dibuktikan di [security-review](security-review.md).
 
 ## Format respons
 Sukses: `{ "success": true, "data": ..., "meta": {page,size,totalElements,totalPages} }`.
 Gagal: `{ "success": false, "error": { "code", "message", "details": [{field,message}] } }`.
-Kode: `VALIDATION_ERROR` 400, `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404, `CONFLICT` 409, `METHOD_NOT_ALLOWED` 405, `UNSUPPORTED_MEDIA_TYPE` 415, `NOT_ACCEPTABLE` 406, `RATE_LIMITED` 429, `TELEGRAM_UNAVAILABLE` 502.
+Kode: `VALIDATION_ERROR` 400, `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404, `CONFLICT` 409, `METHOD_NOT_ALLOWED` 405, `UNSUPPORTED_MEDIA_TYPE` 415, `NOT_ACCEPTABLE` 406, `RATE_LIMITED` 429, `PAYLOAD_TOO_LARGE` 413, `TELEGRAM_UNAVAILABLE` 502.
 Task milik user lain -> 404. Tidak ada `userId` di request. `deadline` request: ISO-8601 dengan offset; response UTC (`Z`).
 
 ## Endpoint

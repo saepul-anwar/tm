@@ -1,8 +1,20 @@
 # Jalankan lokal: cp .env.example .env (isi nilai) lalu `docker compose up -d --build`.
+# Hanya untuk satu host lokal: semua port terikat ke 127.0.0.1, tanpa HTTPS/reverse proxy (lihat docs/DEPLOYMENT_GUIDE.md).
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   mysql:
-    image: mysql:8.0
+    # mysql:8.4 (LTS), dipin ke digest (dicek 2026-11-22). Perbarui digest dengan sengaja.
+    image: mysql:8.4@sha256:a81d043930e51745522bd5c430961cf8286f0a23f0a9a2a6e0108f7ea71b0902
     restart: unless-stopped
+    logging: *default-logging
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1g
+    pids_limit: 512
     environment:
       MYSQL_DATABASE: ${DB_NAME:?isi DB_NAME di .env}
       MYSQL_USER: ${DB_USERNAME:?isi DB_USERNAME di .env}
@@ -23,6 +35,13 @@ services:
     build:
       context: ./backend
     restart: unless-stopped
+    logging: *default-logging
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    mem_limit: 1g
+    pids_limit: 256
     depends_on:
       mysql:
         condition: service_healthy
@@ -42,7 +61,7 @@ services:
       REMINDER_POLL_INTERVAL: ${REMINDER_POLL_INTERVAL:-PT60S}
       REMINDER_CLEANUP_CRON: "${REMINDER_CLEANUP_CRON:-0 30 3 * * *}"
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 10s
@@ -56,13 +75,20 @@ services:
       args:
         BACKEND_URL: ${BACKEND_URL:?isi BACKEND_URL di .env}
     restart: unless-stopped
+    logging: *default-logging
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    mem_limit: 512m
+    pids_limit: 256
     depends_on:
       backend:
         condition: service_healthy
     environment:
       BACKEND_URL: ${BACKEND_URL}
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:3000/"]
       interval: 10s
